@@ -1,4 +1,5 @@
 import type { IncomingHttpHeaders, OutgoingHttpHeaders } from "http";
+import { spawnSync } from "node:child_process";
 import {
   brotliCompressSync,
   brotliDecompressSync,
@@ -6,6 +7,7 @@ import {
   gunzipSync,
   gzipSync,
   inflateSync,
+  inflateRawSync,
 } from "zlib";
 import type WebSocket from "ws";
 import { Proxy } from "../../forked_code/proxy";
@@ -61,7 +63,14 @@ type decoded_body_result_t = {
   decode_error: string | null;
 };
 
+type binary_transform_result_t = {
+  output_data: Buffer;
+  error: string | null;
+};
+
 function CreateTerminatedError(): Error {
+  // Use a sentinel error code so proxy internals can distinguish intentional
+  // callback termination from transport/runtime failures.
   const terminated_error = new Error("Connection terminated by HTTPMITM callback.");
   (terminated_error as Error & { code?: string }).code =
     HTTPMITM_TERMINATED_ERROR_CODE;
@@ -334,6 +343,19 @@ function ParseContentEncodings(params: { content_encoding: string | null }): str
     .filter((encoding) => encoding.length > 0 && encoding !== "identity");
 }
 
+function NormalizeContentEncodingName(params: { encoding: string }): string {
+  switch (params.encoding.trim().toLowerCase()) {
+    case "x-gzip":
+      return "gzip";
+    case "x-deflate":
+      return "deflate";
+    case "x-compress":
+      return "compress";
+    default:
+      return params.encoding.trim().toLowerCase();
+  }
+}
+
 function ReadContentEncodingHeader(params: {
   headers: IncomingHttpHeaders | OutgoingHttpHeaders | undefined;
 }): string | null {
@@ -347,21 +369,315 @@ function ReadContentEncodingHeader(params: {
   return String(header_value);
 }
 
+function RunBinaryTransform(params: {
+  command: string;
+  args: string[];
+  input_data: Buffer;
+}): binary_transform_result_t {
+  // Some encodings (notably zstd) are handled via system binaries to avoid
+  // hard runtime dependency on native Node addons.
+  const result = spawnSync(params.command, params.args, {
+    input: params.input_data,
+    encoding: null,
+    maxBuffer: Math.max(16 * 1024 * 1024, params.input_data.length * 8),
+  });
+
+  if (result.error) {
+    return {
+      output_data: Buffer.alloc(0),
+      error: result.error.message,
+    };
+  }
+
+  if (typeof result.status === "number" && result.status !== 0) {
+    return {
+      output_data: Buffer.alloc(0),
+      error: (result.stderr || Buffer.alloc(0)).toString("utf8") || "Command failed.",
+    };
+  }
+
+  return {
+    output_data: (result.stdout || Buffer.alloc(0)) as Buffer,
+    error: null,
+  };
+}
+
+class LsbBitWriter {
+  private output_bytes: number[] = [];
+  private bit_buffer = 0;
+  private bit_count = 0;
+
+  writeCode(params: { code: number; bit_width: number }): void {
+    // UNIX .Z format stores LZW codes as least-significant-bit first.
+    this.bit_buffer |= params.code << this.bit_count;
+    this.bit_count += params.bit_width;
+
+    while (this.bit_count >= 8) {
+      this.output_bytes.push(this.bit_buffer & 0xff);
+      this.bit_buffer >>>= 8;
+      this.bit_count -= 8;
+    }
+  }
+
+  finish(): Buffer {
+    if (this.bit_count > 0) {
+      this.output_bytes.push(this.bit_buffer & 0xff);
+      this.bit_buffer = 0;
+      this.bit_count = 0;
+    }
+    return Buffer.from(this.output_bytes);
+  }
+}
+
+class LsbBitReader {
+  private input_data: Buffer;
+  private input_index = 0;
+  private bit_buffer = 0;
+  private bit_count = 0;
+
+  constructor(params: { input_data: Buffer }) {
+    this.input_data = params.input_data;
+  }
+
+  readCode(params: { bit_width: number }): number | null {
+    // Mirror writer bit order to decode variable-width LZW codewords.
+    while (this.bit_count < params.bit_width) {
+      if (this.input_index >= this.input_data.length) {
+        return null;
+      }
+      this.bit_buffer |= this.input_data[this.input_index] << this.bit_count;
+      this.input_index += 1;
+      this.bit_count += 8;
+    }
+
+    const mask = (1 << params.bit_width) - 1;
+    const code = this.bit_buffer & mask;
+    this.bit_buffer >>>= params.bit_width;
+    this.bit_count -= params.bit_width;
+    return code;
+  }
+}
+
+function EncodeUnixCompress(params: { decoded_data: Buffer }): binary_transform_result_t {
+  // Minimal UNIX "compress" encoder (LZW, block mode off) for
+  // content-encoding: compress/x-compress support.
+  const max_bits = 16;
+  const max_code_value = 1 << max_bits;
+  const block_mode = false;
+  const clear_code = 256;
+  let next_code = block_mode ? clear_code + 1 : 256;
+  let bit_width = 9;
+  let max_code_for_width = (1 << bit_width) - 1;
+
+  const dictionary = new Map<string, number>();
+  const bit_writer = new LsbBitWriter();
+
+  if (params.decoded_data.length === 0) {
+    const header = Buffer.from([0x1f, 0x9d, max_bits & 0x1f]);
+    return {
+      output_data: header,
+      error: null,
+    };
+  }
+
+  let prefix_code = params.decoded_data[0];
+
+  for (let index = 1; index < params.decoded_data.length; index += 1) {
+    const suffix_byte = params.decoded_data[index];
+    const lookup_key = `${prefix_code}:${suffix_byte}`;
+    const existing_code = dictionary.get(lookup_key);
+
+    if (typeof existing_code !== "undefined") {
+      prefix_code = existing_code;
+      continue;
+    }
+
+    bit_writer.writeCode({
+      code: prefix_code,
+      bit_width,
+    });
+
+    if (next_code < max_code_value) {
+      dictionary.set(lookup_key, next_code);
+      next_code += 1;
+      if (next_code > max_code_for_width && bit_width < max_bits) {
+        bit_width += 1;
+        max_code_for_width = (1 << bit_width) - 1;
+      }
+    }
+
+    prefix_code = suffix_byte;
+  }
+
+  bit_writer.writeCode({
+    code: prefix_code,
+    bit_width,
+  });
+
+  const header_flags = (max_bits & 0x1f) | (block_mode ? 0x80 : 0x00);
+  const header = Buffer.from([0x1f, 0x9d, header_flags]);
+
+  return {
+    output_data: Buffer.concat([header, bit_writer.finish()]),
+    error: null,
+  };
+}
+
+function DecodeUnixCompress(params: { encoded_data: Buffer }): binary_transform_result_t {
+  // Decoder accepts standard .Z streams, including optional CLEAR handling.
+  if (params.encoded_data.length < 3) {
+    return {
+      output_data: Buffer.alloc(0),
+      error: "Invalid compress payload: missing header.",
+    };
+  }
+
+  if (params.encoded_data[0] !== 0x1f || params.encoded_data[1] !== 0x9d) {
+    return {
+      output_data: Buffer.alloc(0),
+      error: "Invalid compress payload: bad magic header.",
+    };
+  }
+
+  const flags = params.encoded_data[2];
+  const block_mode = (flags & 0x80) !== 0;
+  const max_bits = flags & 0x1f;
+  if (max_bits < 9 || max_bits > 16) {
+    return {
+      output_data: Buffer.alloc(0),
+      error: `Invalid compress payload: unsupported maxbits ${max_bits}.`,
+    };
+  }
+
+  const max_code_value = 1 << max_bits;
+  const clear_code = 256;
+  let next_code = block_mode ? clear_code + 1 : 256;
+  let bit_width = 9;
+  let max_code_for_width = (1 << bit_width) - 1;
+
+  const prefix = new Int32Array(max_code_value);
+  const suffix = new Uint8Array(max_code_value);
+  prefix.fill(-1);
+  for (let code = 0; code < 256; code += 1) {
+    suffix[code] = code;
+  }
+
+  const reader = new LsbBitReader({
+    input_data: params.encoded_data.subarray(3),
+  });
+
+  const first_code = reader.readCode({ bit_width });
+  if (first_code === null) {
+    return {
+      output_data: Buffer.alloc(0),
+      error: null,
+    };
+  }
+  if (first_code > 255) {
+    return {
+      output_data: Buffer.alloc(0),
+      error: "Invalid compress payload: bad first code.",
+    };
+  }
+
+  const output_bytes: number[] = [first_code];
+  let previous_code = first_code;
+  let previous_first_byte = first_code;
+  const decode_stack = new Uint8Array(max_code_value);
+
+  while (true) {
+    const current_code_value = reader.readCode({ bit_width });
+    if (current_code_value === null) {
+      break;
+    }
+
+    if (block_mode && current_code_value === clear_code) {
+      bit_width = 9;
+      max_code_for_width = (1 << bit_width) - 1;
+      next_code = clear_code + 1;
+      const reset_code = reader.readCode({ bit_width });
+      if (reset_code === null) {
+        break;
+      }
+      if (reset_code > 255) {
+        return {
+          output_data: Buffer.alloc(0),
+          error: "Invalid compress payload: bad code after CLEAR.",
+        };
+      }
+      output_bytes.push(reset_code);
+      previous_code = reset_code;
+      previous_first_byte = reset_code;
+      continue;
+    }
+
+    let current_code = current_code_value;
+    let stack_length = 0;
+
+    if (current_code >= next_code) {
+      decode_stack[stack_length] = previous_first_byte;
+      stack_length += 1;
+      current_code = previous_code;
+    }
+
+    while (current_code > 255) {
+      if (current_code >= max_code_value || prefix[current_code] < 0) {
+        return {
+          output_data: Buffer.alloc(0),
+          error: "Invalid compress payload: corrupt dictionary reference.",
+        };
+      }
+      decode_stack[stack_length] = suffix[current_code];
+      stack_length += 1;
+      current_code = prefix[current_code];
+    }
+
+    const first_decoded_byte = current_code;
+    decode_stack[stack_length] = first_decoded_byte;
+    stack_length += 1;
+
+    for (let index = stack_length - 1; index >= 0; index -= 1) {
+      output_bytes.push(decode_stack[index]);
+    }
+
+    if (next_code < max_code_value) {
+      prefix[next_code] = previous_code;
+      suffix[next_code] = first_decoded_byte;
+      next_code += 1;
+
+      if (next_code > max_code_for_width && bit_width < max_bits) {
+        bit_width += 1;
+        max_code_for_width = (1 << bit_width) - 1;
+      }
+    }
+
+    previous_code = current_code_value;
+    previous_first_byte = first_decoded_byte;
+  }
+
+  return {
+    output_data: Buffer.from(output_bytes),
+    error: null,
+  };
+}
+
 function ApplyContentEncodingsToData(params: {
   data: Buffer;
   content_encodings: string[];
   mode: "decode" | "encode";
 }): { data: Buffer; error: string | null; transformed: boolean } {
+  // HTTP applies encodings in order; decode must run the inverse order.
   const encodings =
     params.mode === "decode"
       ? [...params.content_encodings].reverse()
       : [...params.content_encodings];
 
-  let current_data = Buffer.from(params.data);
+  let current_data = Buffer.from(params.data) as Buffer;
   let transformed = false;
 
   try {
-    for (const encoding of encodings) {
+    for (const raw_encoding of encodings) {
+      const encoding = NormalizeContentEncodingName({ encoding: raw_encoding });
       switch (encoding) {
         case "gzip":
           current_data =
@@ -371,10 +687,16 @@ function ApplyContentEncodingsToData(params: {
           transformed = true;
           break;
         case "deflate":
-          current_data =
-            params.mode === "decode"
-              ? inflateSync(current_data)
-              : deflateSync(current_data);
+          if (params.mode === "decode") {
+            try {
+              current_data = inflateSync(current_data);
+            } catch {
+              // Some peers send raw-deflate while labeling as "deflate".
+              current_data = inflateRawSync(current_data);
+            }
+          } else {
+            current_data = deflateSync(current_data);
+          }
           transformed = true;
           break;
         case "br":
@@ -384,10 +706,50 @@ function ApplyContentEncodingsToData(params: {
               : brotliCompressSync(current_data);
           transformed = true;
           break;
+        case "zstd": {
+          const zstd_result = RunBinaryTransform({
+            command: "zstd",
+            args:
+              params.mode === "decode"
+                ? ["-d", "-q", "-c", "--no-progress"]
+                : ["-q", "-c", "--no-progress"],
+            input_data: current_data,
+          });
+          if (zstd_result.error) {
+            return {
+              data: current_data,
+              error: zstd_result.error,
+              transformed,
+            };
+          }
+          current_data = Buffer.from(zstd_result.output_data) as Buffer;
+          transformed = true;
+          break;
+        }
+        case "compress": {
+          const compress_result =
+            params.mode === "decode"
+              ? DecodeUnixCompress({
+                  encoded_data: current_data,
+                })
+              : EncodeUnixCompress({
+                  decoded_data: current_data,
+                });
+          if (compress_result.error) {
+            return {
+              data: current_data,
+              error: compress_result.error,
+              transformed,
+            };
+          }
+          current_data = Buffer.from(compress_result.output_data) as Buffer;
+          transformed = true;
+          break;
+        }
         default:
           return {
             data: current_data,
-            error: `Unsupported content-encoding: ${encoding}`,
+            error: `Unsupported content-encoding: ${raw_encoding}`,
             transformed,
           };
       }
@@ -433,6 +795,8 @@ function DecodeBodyFromHeaders(params: {
 
   return {
     raw_data: params.raw_data,
+    // On decode failure, surface the original bytes so caller code can still
+    // inspect or pass through payload safely.
     decoded_data: decoded_result.error
       ? Buffer.from(params.raw_data)
       : decoded_result.data,
@@ -485,6 +849,7 @@ function NormalizeContentEncodingHeader(params: {
   headers: OutgoingHttpHeaders;
   content_encodings: string[];
 }): void {
+  // Keep header/body consistency after callback-driven encoding changes.
   if (params.content_encodings.length === 0) {
     delete params.headers["content-encoding"];
     return;
@@ -572,6 +937,8 @@ export class HTTPMITM {
     params.proxy_instance.onRequest((ctx, callback) => {
       this.getOrCreateHttpState({ ctx });
       if (has_response_callbacks) {
+        // When response callbacks are active we defer writeHead so content-length
+        // can be recalculated after async body modifications.
         ctx.tags = ctx.tags || {
           id: 0,
           uri: "",
@@ -609,6 +976,8 @@ export class HTTPMITM {
 
       params.proxy_instance.onRequestData((ctx, chunk, callback) => {
         const connection_state = this.getOrCreateHttpState({ ctx });
+        // Buffer request body so no upstream bytes are sent before async
+        // callback completion.
         connection_state.request_chunks.push(Buffer.from(chunk));
         callback(null, undefined);
       });
@@ -635,6 +1004,7 @@ export class HTTPMITM {
 
       params.proxy_instance.onResponseData((ctx, chunk, callback) => {
         const connection_state = this.getOrCreateHttpState({ ctx });
+        // Buffer response body for the same strict pause-before-forward model.
         connection_state.response_chunks.push(Buffer.from(chunk));
         callback(null, undefined);
       });
@@ -920,6 +1290,8 @@ export class HTTPMITM {
           right: final_content_encodings,
         })
       ) {
+        // No decoded body override and no encoding change: preserve original
+        // wire bytes to avoid unnecessary recompression drift.
         decoded_body_to_send = undefined;
       } else {
         throw new Error(
@@ -1126,6 +1498,7 @@ export class HTTPMITM {
           right: final_content_encodings,
         })
       ) {
+        // Preserve original encoded bytes when body content/encoding is unchanged.
         decoded_body_to_send = undefined;
       } else {
         throw new Error(
@@ -1184,6 +1557,8 @@ export class HTTPMITM {
     try {
       return await params.callback_executor();
     } catch (error) {
+      // Callback exceptions are policy-driven: either fail-closed (TERMINATE)
+      // or fail-open (PASSTHROUGH).
       if (this.callback_error_policy === "PASSTHROUGH") {
         return { state: "PASSTHROUGH" };
       }
@@ -1195,6 +1570,8 @@ export class HTTPMITM {
     ctx: IContext;
     connection_state: http_connection_state_t;
   }): void {
+    // Mark intent first so proxy-level error paths do not emit synthetic 504
+    // responses for expected TERMINATE actions.
     params.connection_state.terminated = true;
     params.ctx.tags = params.ctx.tags || {
       id: 0,
@@ -1384,6 +1761,7 @@ export class HTTPMITM {
   }
 
   private terminateWebSocketConnection(params: { ctx: IWebSocketContext }): void {
+    // Close both directions defensively; ws state can diverge under errors.
     try {
       if (IsWebSocketOpen({ websocket: params.ctx.clientToProxyWebSocket })) {
         params.ctx.clientToProxyWebSocket?.terminate();

@@ -11,6 +11,13 @@ It adds strict async interception for HTTP and WebSocket flows.
   - `MODIFIED`: apply callback-provided headers/data, recalculate protocol metadata as needed.
   - `TERMINATE`: abort the active connection.
 - Callback failures default to `TERMINATE` (configurable with `callback_error_policy`).
+- HTTP data callbacks automatically decode and re-encode `Content-Encoding` payloads:
+  - `gzip`, `x-gzip`
+  - `deflate`, `x-deflate`
+  - `br`
+  - `zstd`
+  - `compress`, `x-compress`
+  - Note: `zstd` support uses the local `zstd` binary on PATH.
 
 ## Install
 
@@ -134,6 +141,8 @@ If any connection detail cannot be resolved, it is set to `null`.
 - `decode_error`: decode failure message or `null`.
 - `data`: alias of `decoded_data` for convenience.
 
+`data` is the decoded form. If you return modified `data`, HTTPMITM re-encodes using the current `Content-Encoding` header before forwarding.
+
 #### `responseHeaders`
 
 - `request`: request metadata.
@@ -150,6 +159,8 @@ If any connection detail cannot be resolved, it is set to `null`.
 - `data_is_decoded`: `true` if decode succeeded (or no encoding), else `false`.
 - `decode_error`: decode failure message or `null`.
 - `data`: alias of `decoded_data` for convenience.
+
+`data` is the decoded form. If you return modified `data`, HTTPMITM re-encodes using the current `Content-Encoding` header before forwarding.
 
 ### WebSocket Callback-Specific Context Fields
 

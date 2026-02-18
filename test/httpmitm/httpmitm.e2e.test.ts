@@ -1,10 +1,18 @@
 import assert from "node:assert";
+import { spawnSync } from "node:child_process";
 import { once } from "node:events";
 import http, { type IncomingMessage, type ServerResponse } from "node:http";
 import type { AddressInfo } from "node:net";
 import path from "node:path";
 import test from "node:test";
-import { brotliCompressSync, brotliDecompressSync, gunzipSync, gzipSync } from "node:zlib";
+import {
+  brotliCompressSync,
+  brotliDecompressSync,
+  deflateSync,
+  gunzipSync,
+  gzipSync,
+  inflateSync,
+} from "node:zlib";
 import WebSocket, { WebSocketServer } from "ws";
 
 import { HTTPMITM } from "../../src";
@@ -21,6 +29,25 @@ type http_proxy_request_result_t = {
   raw_body: Buffer;
   body: string;
 };
+
+function RunBinaryTransform(params: {
+  command: string;
+  args: string[];
+  input_data: Buffer;
+}): Buffer {
+  const result = spawnSync(params.command, params.args, {
+    input: params.input_data,
+    encoding: null,
+    maxBuffer: 16 * 1024 * 1024,
+  });
+  if (result.error) {
+    throw result.error;
+  }
+  if (typeof result.status === "number" && result.status !== 0) {
+    throw new Error((result.stderr || Buffer.alloc(0)).toString("utf8"));
+  }
+  return (result.stdout || Buffer.alloc(0)) as Buffer;
+}
 
 function Delay(params: { ms: number }): Promise<void> {
   return new Promise((resolve) => {
@@ -431,6 +458,151 @@ test("HTTP responseData decodes gzip for callback and re-encodes after modificat
   }
 });
 
+test("HTTP responseData supports x-gzip and x-deflate aliases", async () => {
+  const upstream_server = await StartHttpServer({
+    handler: async (request, response) => {
+      if (request.url === "/x-gzip") {
+        const compressed_body = gzipSync(Buffer.from("x-gzip-upstream", "utf8"));
+        response.writeHead(200, {
+          "content-type": "text/plain",
+          "content-encoding": "x-gzip",
+          "content-length": String(compressed_body.length),
+        });
+        response.end(compressed_body);
+        return;
+      }
+
+      const compressed_body = deflateSync(Buffer.from("x-deflate-upstream", "utf8"));
+      response.writeHead(200, {
+        "content-type": "text/plain",
+        "content-encoding": "x-deflate",
+        "content-length": String(compressed_body.length),
+      });
+      response.end(compressed_body);
+    },
+  });
+
+  const seen_content_encodings: string[] = [];
+
+  const mitm_server = await StartHttpMitm({
+    start_params: {
+      host: "127.0.0.1",
+      listen_port: 0,
+      ssl_ca_dir: CreateSslCaDir({ test_name: "x_encoding_aliases" }),
+      http: {
+        server_to_client: {
+          responseData: async ({ context }) => {
+            seen_content_encodings.push(context.content_encoding || "");
+            if (context.content_encoding === "x-gzip") {
+              assert.equal(context.data.toString("utf8"), "x-gzip-upstream");
+              return {
+                state: "MODIFIED",
+                data: "x-gzip-modified",
+              };
+            }
+
+            assert.equal(context.content_encoding, "x-deflate");
+            assert.equal(context.data.toString("utf8"), "x-deflate-upstream");
+            return {
+              state: "MODIFIED",
+              data: "x-deflate-modified",
+            };
+          },
+        },
+      },
+    },
+  });
+
+  try {
+    const gzip_response = await SendHttpRequestViaProxy({
+      proxy_port: mitm_server.listen_port,
+      target_port: upstream_server.port,
+      method: "GET",
+      path: "/x-gzip",
+    });
+    assert.equal(gzip_response.headers["content-encoding"], "x-gzip");
+    assert.equal(gunzipSync(gzip_response.raw_body).toString("utf8"), "x-gzip-modified");
+
+    const deflate_response = await SendHttpRequestViaProxy({
+      proxy_port: mitm_server.listen_port,
+      target_port: upstream_server.port,
+      method: "GET",
+      path: "/x-deflate",
+    });
+    assert.equal(deflate_response.headers["content-encoding"], "x-deflate");
+    assert.equal(
+      inflateSync(deflate_response.raw_body).toString("utf8"),
+      "x-deflate-modified"
+    );
+
+    assert.deepEqual(seen_content_encodings.sort(), ["x-deflate", "x-gzip"]);
+  } finally {
+    await mitm_server.close();
+    await CloseHttpServer({ server: upstream_server.server });
+  }
+});
+
+test("HTTP responseData supports zstd encoding decode and re-encode", async () => {
+  const upstream_server = await StartHttpServer({
+    handler: async (_request, response) => {
+      const encoded_body = RunBinaryTransform({
+        command: "zstd",
+        args: ["-q", "-c", "--no-progress"],
+        input_data: Buffer.from("zstd-upstream-body", "utf8"),
+      });
+      response.writeHead(200, {
+        "content-type": "text/plain",
+        "content-encoding": "zstd",
+        "content-length": String(encoded_body.length),
+      });
+      response.end(encoded_body);
+    },
+  });
+
+  let callback_saw_data = "";
+
+  const mitm_server = await StartHttpMitm({
+    start_params: {
+      host: "127.0.0.1",
+      listen_port: 0,
+      ssl_ca_dir: CreateSslCaDir({ test_name: "zstd_decode_encode" }),
+      http: {
+        server_to_client: {
+          responseData: async ({ context }) => {
+            callback_saw_data = context.data.toString("utf8");
+            assert.equal(context.content_encoding, "zstd");
+            return {
+              state: "MODIFIED",
+              data: "zstd-modified-body",
+            };
+          },
+        },
+      },
+    },
+  });
+
+  try {
+    const response = await SendHttpRequestViaProxy({
+      proxy_port: mitm_server.listen_port,
+      target_port: upstream_server.port,
+      method: "GET",
+      path: "/zstd",
+    });
+
+    assert.equal(callback_saw_data, "zstd-upstream-body");
+    assert.equal(response.headers["content-encoding"], "zstd");
+    const decoded_response_body = RunBinaryTransform({
+      command: "zstd",
+      args: ["-d", "-q", "-c", "--no-progress"],
+      input_data: response.raw_body,
+    }).toString("utf8");
+    assert.equal(decoded_response_body, "zstd-modified-body");
+  } finally {
+    await mitm_server.close();
+    await CloseHttpServer({ server: upstream_server.server });
+  }
+});
+
 test("HTTP requestData decodes brotli for callback and re-encodes after modification", async () => {
   let upstream_content_encoding = "";
   let upstream_decoded_body = "";
@@ -494,6 +666,86 @@ test("HTTP requestData decodes brotli for callback and re-encodes after modifica
     assert.equal(callback_saw_decoded_request, "brotli-original-request");
     assert.equal(upstream_content_encoding, "br");
     assert.equal(upstream_decoded_body, "brotli-modified-request");
+  } finally {
+    await mitm_server.close();
+    await CloseHttpServer({ server: upstream_server.server });
+  }
+});
+
+test("HTTP responseData supports compress and x-compress encoding", async () => {
+  const upstream_server = await StartHttpServer({
+    handler: async (request, response) => {
+      response.writeHead(200, {
+        "content-type": "text/plain",
+      });
+      response.end(request.url === "/x-compress" ? "x-compress-origin" : "compress-origin");
+    },
+  });
+
+  const seen_encodings: string[] = [];
+
+  const mitm_server = await StartHttpMitm({
+    start_params: {
+      host: "127.0.0.1",
+      listen_port: 0,
+      ssl_ca_dir: CreateSslCaDir({ test_name: "compress_xcompress" }),
+      http: {
+        server_to_client: {
+          responseData: async ({ context }) => {
+            if (context.request.url === "/x-compress") {
+              seen_encodings.push("x-compress");
+              return {
+                state: "MODIFIED",
+                headers: [{ name: "content-encoding", value: "x-compress" }],
+                data: "x-compress-modified",
+              };
+            }
+            seen_encodings.push("compress");
+            return {
+              state: "MODIFIED",
+              headers: [{ name: "content-encoding", value: "compress" }],
+              data: "compress-modified",
+            };
+          },
+        },
+      },
+    },
+  });
+
+  try {
+    const compress_response = await SendHttpRequestViaProxy({
+      proxy_port: mitm_server.listen_port,
+      target_port: upstream_server.port,
+      method: "GET",
+      path: "/compress",
+    });
+    assert.equal(compress_response.headers["content-encoding"], "compress");
+    assert.equal(compress_response.raw_body[0], 0x1f);
+    assert.equal(compress_response.raw_body[1], 0x9d);
+    const compress_decoded = RunBinaryTransform({
+      command: "uncompress",
+      args: ["-c"],
+      input_data: compress_response.raw_body,
+    }).toString("utf8");
+    assert.equal(compress_decoded, "compress-modified");
+
+    const x_compress_response = await SendHttpRequestViaProxy({
+      proxy_port: mitm_server.listen_port,
+      target_port: upstream_server.port,
+      method: "GET",
+      path: "/x-compress",
+    });
+    assert.equal(x_compress_response.headers["content-encoding"], "x-compress");
+    assert.equal(x_compress_response.raw_body[0], 0x1f);
+    assert.equal(x_compress_response.raw_body[1], 0x9d);
+    const x_compress_decoded = RunBinaryTransform({
+      command: "uncompress",
+      args: ["-c"],
+      input_data: x_compress_response.raw_body,
+    }).toString("utf8");
+    assert.equal(x_compress_decoded, "x-compress-modified");
+
+    assert.deepEqual(seen_encodings.sort(), ["compress", "x-compress"]);
   } finally {
     await mitm_server.close();
     await CloseHttpServer({ server: upstream_server.server });
