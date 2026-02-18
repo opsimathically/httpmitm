@@ -20,7 +20,7 @@ import type { httpmitm_start_params_t } from '../../src';
       client_to_server: {
         requestHeaders: async () => {
           console.log('CLIENT_TO_SERVER: requestHeaders');
-          return { state: 'PASSTHROUGH' };
+          return { state: '' };
         },
         requestData: async () => {
           console.log('CLIENT_TO_SERVER: requestData');

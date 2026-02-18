@@ -11,6 +11,7 @@ It adds strict async interception for HTTP and WebSocket flows.
   - `MODIFIED`: apply callback-provided headers/data, recalculate protocol metadata as needed.
   - `TERMINATE`: abort the active connection.
 - Callback failures default to `TERMINATE` (configurable with `callback_error_policy`).
+- Optional plugin stack support with deterministic linear execution and plugin-only `CONTINUE`.
 - HTTP data callbacks automatically decode and re-encode `Content-Encoding` payloads:
   - `gzip`, `x-gzip`
   - `deflate`, `x-deflate`
@@ -95,6 +96,77 @@ import { HTTPMITM } from './classes/httpmitm/HTTPMITM.class';
       },
       onConnectionTerminated: async ({ context }) => {
         // optional cleanup/logging
+      }
+    }
+  });
+})();
+```
+
+## Plugin Architecture
+
+`HTTPMITM.start(...)` accepts `plugins`, an array of plugin class instances.
+
+- Execution order per hook:
+  1. plugin 1 hook
+  2. plugin 2 hook
+  3. plugin N hook
+  4. instance callback from `start` params (only if chain continues)
+- Plugin hook states:
+  - `CONTINUE`: run the next plugin hook
+  - `PASSTHROUGH`: stop chain and use passthrough result
+  - `MODIFIED`: stop chain and use modified result
+  - `TERMINATE`: stop chain and terminate the connection
+- If all plugins skip/miss the hook or return `CONTINUE`, the instance callback is executed (if defined).
+- Plugin callback throw/reject follows `callback_error_policy`:
+  - `TERMINATE` policy => terminate
+  - `PASSTHROUGH` policy => passthrough
+- Plugins must implement at least one supported hook, or `start` throws.
+
+### Plugin Example
+
+```typescript
+import {
+  HTTPMITM,
+  type httpmitm_plugin_i
+} from "@opsimathically/httpmitm";
+
+class AddHeaderPlugin implements httpmitm_plugin_i {
+  plugin_name = "add_header";
+  http = {
+    client_to_server: {
+      requestHeaders: async () => ({
+        state: "MODIFIED",
+        headers: [{ name: "x-plugin", value: "applied" }]
+      })
+    }
+  };
+}
+
+class AuditPlugin implements httpmitm_plugin_i {
+  plugin_name = "audit";
+  http = {
+    client_to_server: {
+      requestHeaders: async ({ context }) => {
+        console.log("request", context.connection_id, context.request.url);
+        return { state: "CONTINUE" };
+      }
+    }
+  };
+}
+
+(async function () {
+  const httpmitm = new HTTPMITM();
+  await httpmitm.start({
+    host: "0.0.0.0",
+    listen_port: 4444,
+    callback_error_policy: "TERMINATE",
+    plugins: [new AuditPlugin(), new AddHeaderPlugin()],
+    http: {
+      client_to_server: {
+        requestHeaders: async () => {
+          // Runs only if every plugin returns CONTINUE.
+          return { state: "PASSTHROUGH" };
+        }
       }
     }
   });

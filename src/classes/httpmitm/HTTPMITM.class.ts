@@ -16,7 +16,10 @@ import type {
   callback_error_policy_t,
   header_entry_t,
   header_value_t,
+  httpmitm_plugin_i,
   http_interception_result_t,
+  plugin_http_interception_result_t,
+  plugin_websocket_interception_result_t,
   http_request_data_callback_context_t,
   http_request_headers_callback_context_t,
   http_response_data_callback_context_t,
@@ -190,6 +193,54 @@ function NormalizeWebSocketResult(params: {
     return { ...params.result, state: "PASSTHROUGH" };
   }
   return params.result;
+}
+
+function NormalizePluginHttpResult(params: {
+  result: plugin_http_interception_result_t | void;
+}): plugin_http_interception_result_t {
+  if (!params.result) {
+    return { state: "CONTINUE" };
+  }
+  if (!params.result.state) {
+    return { ...params.result, state: "CONTINUE" };
+  }
+  return params.result;
+}
+
+function NormalizePluginWebSocketResult(params: {
+  result: plugin_websocket_interception_result_t | void;
+}): plugin_websocket_interception_result_t {
+  if (!params.result) {
+    return { state: "CONTINUE" };
+  }
+  if (!params.result.state) {
+    return { ...params.result, state: "CONTINUE" };
+  }
+  return params.result;
+}
+
+function PluginHttpResultToHttpResult(params: {
+  plugin_result: plugin_http_interception_result_t;
+}): http_interception_result_t {
+  if (params.plugin_result.state === "CONTINUE") {
+    return { state: "PASSTHROUGH" };
+  }
+  return {
+    ...params.plugin_result,
+    state: params.plugin_result.state,
+  };
+}
+
+function PluginWebSocketResultToWebSocketResult(params: {
+  plugin_result: plugin_websocket_interception_result_t;
+}): websocket_interception_result_t {
+  if (params.plugin_result.state === "CONTINUE") {
+    return { state: "PASSTHROUGH" };
+  }
+  return {
+    ...params.plugin_result,
+    state: params.plugin_result.state,
+  };
 }
 
 function IsWebSocketOpen(params: {
@@ -860,9 +911,11 @@ function NormalizeContentEncodingHeader(params: {
 export class HTTPMITM {
   private proxy_instance: Proxy | undefined;
   private callback_error_policy: callback_error_policy_t;
+  private plugin_instances: httpmitm_plugin_i[];
 
   constructor() {
     this.callback_error_policy = "TERMINATE";
+    this.plugin_instances = [];
   }
 
   async start(params: httpmitm_start_params_t): Promise<httpmitm_server_t> {
@@ -871,6 +924,9 @@ export class HTTPMITM {
     }
 
     this.callback_error_policy = params.callback_error_policy || "TERMINATE";
+    this.plugin_instances = this.validateAndNormalizePlugins({
+      plugins: params.plugins,
+    });
 
     const proxy_instance = new Proxy();
     this.registerHttpCallbacks({ proxy_instance, start_params: params });
@@ -918,21 +974,202 @@ export class HTTPMITM {
     this.proxy_instance = undefined;
   }
 
+  private validateAndNormalizePlugins(params: {
+    plugins: httpmitm_plugin_i[] | undefined;
+  }): httpmitm_plugin_i[] {
+    if (!params.plugins) {
+      return [];
+    }
+
+    if (!Array.isArray(params.plugins)) {
+      throw new Error("HTTPMITM.start plugins must be an array.");
+    }
+
+    params.plugins.forEach((plugin_instance, plugin_index) => {
+      if (!plugin_instance || typeof plugin_instance !== "object") {
+        throw new Error(
+          `HTTPMITM plugin at index ${plugin_index} must be an object instance.`
+        );
+      }
+      if (!this.pluginImplementsAnyHook({ plugin_instance })) {
+        const plugin_name =
+          plugin_instance.plugin_name ||
+          (plugin_instance as { constructor?: { name?: string } }).constructor
+            ?.name ||
+          `plugin_${plugin_index}`;
+        throw new Error(
+          `HTTPMITM plugin "${plugin_name}" at index ${plugin_index} must implement at least one callback hook.`
+        );
+      }
+    });
+
+    return params.plugins;
+  }
+
+  private pluginImplementsAnyHook(params: {
+    plugin_instance: httpmitm_plugin_i;
+  }): boolean {
+    const plugin_instance = params.plugin_instance;
+    return (
+      typeof plugin_instance.http?.client_to_server?.requestHeaders ===
+        "function" ||
+      typeof plugin_instance.http?.client_to_server?.requestData ===
+        "function" ||
+      typeof plugin_instance.http?.server_to_client?.responseHeaders ===
+        "function" ||
+      typeof plugin_instance.http?.server_to_client?.responseData ===
+        "function" ||
+      typeof plugin_instance.websocket?.onServerUpgrade === "function" ||
+      typeof plugin_instance.websocket?.onFrameSent === "function" ||
+      typeof plugin_instance.websocket?.onFrameReceived === "function" ||
+      typeof plugin_instance.websocket?.onConnectionTerminated === "function"
+    );
+  }
+
+  private async resolveHttpInterceptionResultFromChain<callback_context_t>(params: {
+    callback_context: callback_context_t;
+    get_plugin_callback: (params: {
+      plugin_instance: httpmitm_plugin_i;
+    }) =>
+      | ((params: {
+          context: callback_context_t;
+        }) => Promise<plugin_http_interception_result_t | void>)
+      | undefined;
+    instance_callback:
+      | ((params: {
+          context: callback_context_t;
+        }) => Promise<http_interception_result_t | void>)
+      | undefined;
+  }): Promise<http_interception_result_t> {
+    for (const plugin_instance of this.plugin_instances) {
+      const plugin_callback = params.get_plugin_callback({ plugin_instance });
+      if (!plugin_callback) {
+        continue;
+      }
+
+      const plugin_result = await this.executeHttpPluginCallback({
+        callback_executor: async () =>
+          NormalizePluginHttpResult({
+            result: await plugin_callback({ context: params.callback_context }),
+          }),
+      });
+
+      if (plugin_result.state === "CONTINUE") {
+        continue;
+      }
+
+      return PluginHttpResultToHttpResult({ plugin_result });
+    }
+
+    if (!params.instance_callback) {
+      return { state: "PASSTHROUGH" };
+    }
+
+    return await this.executeHttpCallback({
+      callback_executor: async () =>
+        NormalizeHttpResult({
+          result: await params.instance_callback!({
+            context: params.callback_context,
+          }),
+        }),
+    });
+  }
+
+  private async resolveWebSocketInterceptionResultFromChain<callback_context_t>(
+    params: {
+      callback_context: callback_context_t;
+      get_plugin_callback: (params: {
+        plugin_instance: httpmitm_plugin_i;
+      }) =>
+        | ((params: {
+            context: callback_context_t;
+          }) => Promise<plugin_websocket_interception_result_t | void>)
+        | undefined;
+      instance_callback:
+        | ((params: {
+            context: callback_context_t;
+          }) => Promise<websocket_interception_result_t | void>)
+        | undefined;
+    }
+  ): Promise<websocket_interception_result_t> {
+    for (const plugin_instance of this.plugin_instances) {
+      const plugin_callback = params.get_plugin_callback({ plugin_instance });
+      if (!plugin_callback) {
+        continue;
+      }
+
+      const plugin_result = await this.executeWebSocketPluginCallback({
+        callback_executor: async () =>
+          NormalizePluginWebSocketResult({
+            result: await plugin_callback({ context: params.callback_context }),
+          }),
+      });
+
+      if (plugin_result.state === "CONTINUE") {
+        continue;
+      }
+
+      return PluginWebSocketResultToWebSocketResult({ plugin_result });
+    }
+
+    if (!params.instance_callback) {
+      return { state: "PASSTHROUGH" };
+    }
+
+    return await this.executeWebSocketCallback({
+      callback_executor: async () =>
+        NormalizeWebSocketResult({
+          result: await params.instance_callback!({
+            context: params.callback_context,
+          }),
+        }),
+    });
+  }
+
   private registerHttpCallbacks(params: {
     proxy_instance: Proxy;
     start_params: httpmitm_start_params_t;
   }): void {
     const http_callbacks = params.start_params.http;
-    if (!http_callbacks) {
+    const has_plugin_request_headers_callbacks = this.plugin_instances.some(
+      (plugin_instance) =>
+        typeof plugin_instance.http?.client_to_server?.requestHeaders ===
+        "function"
+    );
+    const has_plugin_request_data_callbacks = this.plugin_instances.some(
+      (plugin_instance) =>
+        typeof plugin_instance.http?.client_to_server?.requestData === "function"
+    );
+    const has_plugin_response_headers_callbacks = this.plugin_instances.some(
+      (plugin_instance) =>
+        typeof plugin_instance.http?.server_to_client?.responseHeaders ===
+        "function"
+    );
+    const has_plugin_response_data_callbacks = this.plugin_instances.some(
+      (plugin_instance) =>
+        typeof plugin_instance.http?.server_to_client?.responseData === "function"
+    );
+
+    if (
+      !http_callbacks &&
+      !has_plugin_request_headers_callbacks &&
+      !has_plugin_request_data_callbacks &&
+      !has_plugin_response_headers_callbacks &&
+      !has_plugin_response_data_callbacks
+    ) {
       return;
     }
 
     const has_request_callbacks =
-      !!http_callbacks.client_to_server?.requestHeaders ||
-      !!http_callbacks.client_to_server?.requestData;
+      !!http_callbacks?.client_to_server?.requestHeaders ||
+      !!http_callbacks?.client_to_server?.requestData ||
+      has_plugin_request_headers_callbacks ||
+      has_plugin_request_data_callbacks;
     const has_response_callbacks =
-      !!http_callbacks.server_to_client?.responseHeaders ||
-      !!http_callbacks.server_to_client?.responseData;
+      !!http_callbacks?.server_to_client?.responseHeaders ||
+      !!http_callbacks?.server_to_client?.responseData ||
+      has_plugin_response_headers_callbacks ||
+      has_plugin_response_data_callbacks;
 
     params.proxy_instance.onRequest((ctx, callback) => {
       this.getOrCreateHttpState({ ctx });
@@ -968,7 +1205,7 @@ export class HTTPMITM {
       params.proxy_instance.onRequestHeaders((ctx, callback) => {
         void this.handleRequestHeadersCallback({
           ctx,
-          callback_handler: http_callbacks.client_to_server?.requestHeaders,
+          callback_handler: http_callbacks?.client_to_server?.requestHeaders,
         })
           .then(() => callback(null))
           .catch((error) => callback(error as Error));
@@ -985,7 +1222,7 @@ export class HTTPMITM {
       params.proxy_instance.onRequestEnd((ctx, callback) => {
         void this.handleRequestDataCallback({
           ctx,
-          callback_handler: http_callbacks.client_to_server?.requestData,
+          callback_handler: http_callbacks?.client_to_server?.requestData,
         })
           .then(() => callback(null))
           .catch((error) => callback(error as Error));
@@ -996,7 +1233,7 @@ export class HTTPMITM {
       params.proxy_instance.onResponseHeaders((ctx, callback) => {
         void this.handleResponseHeadersCallback({
           ctx,
-          callback_handler: http_callbacks.server_to_client?.responseHeaders,
+          callback_handler: http_callbacks?.server_to_client?.responseHeaders,
         })
           .then(() => callback(null))
           .catch((error) => callback(error as Error));
@@ -1012,7 +1249,7 @@ export class HTTPMITM {
       params.proxy_instance.onResponseEnd((ctx, callback) => {
         void this.handleResponseDataCallback({
           ctx,
-          callback_handler: http_callbacks.server_to_client?.responseData,
+          callback_handler: http_callbacks?.server_to_client?.responseData,
         })
           .then(() => callback(null))
           .catch((error) => callback(error as Error));
@@ -1025,12 +1262,34 @@ export class HTTPMITM {
     start_params: httpmitm_start_params_t;
   }): void {
     const websocket_callbacks = params.start_params.websocket;
-    if (!websocket_callbacks) {
+    const has_plugin_server_upgrade_callbacks = this.plugin_instances.some(
+      (plugin_instance) =>
+        typeof plugin_instance.websocket?.onServerUpgrade === "function"
+    );
+    const has_plugin_frame_sent_callbacks = this.plugin_instances.some(
+      (plugin_instance) => typeof plugin_instance.websocket?.onFrameSent === "function"
+    );
+    const has_plugin_frame_received_callbacks = this.plugin_instances.some(
+      (plugin_instance) =>
+        typeof plugin_instance.websocket?.onFrameReceived === "function"
+    );
+    const has_plugin_terminated_callbacks = this.plugin_instances.some(
+      (plugin_instance) =>
+        typeof plugin_instance.websocket?.onConnectionTerminated === "function"
+    );
+
+    if (
+      !websocket_callbacks &&
+      !has_plugin_server_upgrade_callbacks &&
+      !has_plugin_frame_sent_callbacks &&
+      !has_plugin_frame_received_callbacks &&
+      !has_plugin_terminated_callbacks
+    ) {
       return;
     }
 
-    const on_server_upgrade = websocket_callbacks.onServerUpgrade;
-    if (on_server_upgrade) {
+    const on_server_upgrade = websocket_callbacks?.onServerUpgrade;
+    if (on_server_upgrade || has_plugin_server_upgrade_callbacks) {
       params.proxy_instance.onWebSocketConnection((ctx, callback) => {
         void this.handleWebSocketUpgradeCallback({
           ctx,
@@ -1041,8 +1300,8 @@ export class HTTPMITM {
       });
     }
 
-    const on_frame_sent = websocket_callbacks.onFrameSent;
-    if (on_frame_sent) {
+    const on_frame_sent = websocket_callbacks?.onFrameSent;
+    if (on_frame_sent || has_plugin_frame_sent_callbacks) {
       params.proxy_instance.onWebSocketSend((ctx, message, flags, callback) => {
         void this.handleWebSocketFrameCallback({
           ctx,
@@ -1057,8 +1316,8 @@ export class HTTPMITM {
       });
     }
 
-    const on_frame_received = websocket_callbacks.onFrameReceived;
-    if (on_frame_received) {
+    const on_frame_received = websocket_callbacks?.onFrameReceived;
+    if (on_frame_received || has_plugin_frame_received_callbacks) {
       params.proxy_instance.onWebSocketMessage((
         ctx,
         message,
@@ -1078,8 +1337,8 @@ export class HTTPMITM {
       });
     }
 
-    const on_connection_terminated = websocket_callbacks.onConnectionTerminated;
-    if (on_connection_terminated) {
+    const on_connection_terminated = websocket_callbacks?.onConnectionTerminated;
+    if (on_connection_terminated || has_plugin_terminated_callbacks) {
       params.proxy_instance.onWebSocketClose((ctx, code, message, callback) => {
         void this.handleWebSocketCloseCallback({
           ctx,
@@ -1134,10 +1393,6 @@ export class HTTPMITM {
       | ((params: { context: http_request_headers_callback_context_t }) => Promise<http_interception_result_t | void>)
       | undefined;
   }): Promise<void> {
-    if (!params.callback_handler) {
-      return;
-    }
-
     const connection_state = this.getOrCreateHttpState({ ctx: params.ctx });
 
     const callback_context: http_request_headers_callback_context_t = {
@@ -1153,11 +1408,11 @@ export class HTTPMITM {
       handles: this.buildHttpHandles({ ctx: params.ctx }),
     };
 
-    const callback_result = await this.executeHttpCallback({
-      callback_executor: async () =>
-        NormalizeHttpResult({
-          result: await params.callback_handler!({ context: callback_context }),
-        }),
+    const callback_result = await this.resolveHttpInterceptionResultFromChain({
+      callback_context,
+      get_plugin_callback: ({ plugin_instance }) =>
+        plugin_instance.http?.client_to_server?.requestHeaders,
+      instance_callback: params.callback_handler,
     });
 
     await this.applyRequestResult({
@@ -1217,36 +1472,32 @@ export class HTTPMITM {
       headers: request_headers,
     });
 
-    let callback_result: http_interception_result_t = { state: "PASSTHROUGH" };
+    const callback_context: http_request_data_callback_context_t = {
+      connection_id: params.ctx.uuid,
+      connection_started_at_ms: connection_state.connection_started_at_ms,
+      intercepted_at_ms: Date.now(),
+      protocol: "http",
+      is_ssl: params.ctx.isSSL,
+      direction: "client_to_server",
+      ...BuildHttpNetworkDetails({ ctx: params.ctx }),
+      event: "request_data",
+      request: GetHttpRequestMetadata({ ctx: params.ctx }),
+      content_encoding: decoded_request_body.content_encoding,
+      content_encodings: decoded_request_body.content_encodings,
+      raw_data: decoded_request_body.raw_data,
+      decoded_data: decoded_request_body.decoded_data,
+      data_is_decoded: decoded_request_body.data_is_decoded,
+      decode_error: decoded_request_body.decode_error,
+      data: decoded_request_body.decoded_data,
+      handles: this.buildHttpHandles({ ctx: params.ctx }),
+    };
 
-    if (params.callback_handler) {
-      const callback_context: http_request_data_callback_context_t = {
-        connection_id: params.ctx.uuid,
-        connection_started_at_ms: connection_state.connection_started_at_ms,
-        intercepted_at_ms: Date.now(),
-        protocol: "http",
-        is_ssl: params.ctx.isSSL,
-        direction: "client_to_server",
-        ...BuildHttpNetworkDetails({ ctx: params.ctx }),
-        event: "request_data",
-        request: GetHttpRequestMetadata({ ctx: params.ctx }),
-        content_encoding: decoded_request_body.content_encoding,
-        content_encodings: decoded_request_body.content_encodings,
-        raw_data: decoded_request_body.raw_data,
-        decoded_data: decoded_request_body.decoded_data,
-        data_is_decoded: decoded_request_body.data_is_decoded,
-        decode_error: decoded_request_body.decode_error,
-        data: decoded_request_body.decoded_data,
-        handles: this.buildHttpHandles({ ctx: params.ctx }),
-      };
-
-      callback_result = await this.executeHttpCallback({
-        callback_executor: async () =>
-          NormalizeHttpResult({
-            result: await params.callback_handler!({ context: callback_context }),
-          }),
-      });
-    }
+    const callback_result = await this.resolveHttpInterceptionResultFromChain({
+      callback_context,
+      get_plugin_callback: ({ plugin_instance }) =>
+        plugin_instance.http?.client_to_server?.requestData,
+      instance_callback: params.callback_handler,
+    });
 
     if (callback_result.state === "MODIFIED" && callback_result.headers) {
       ApplyHeaderEntriesToObject({
@@ -1346,10 +1597,6 @@ export class HTTPMITM {
       | ((params: { context: http_response_headers_callback_context_t }) => Promise<http_interception_result_t | void>)
       | undefined;
   }): Promise<void> {
-    if (!params.callback_handler) {
-      return;
-    }
-
     const connection_state = this.getOrCreateHttpState({ ctx: params.ctx });
 
     const callback_context: http_response_headers_callback_context_t = {
@@ -1366,11 +1613,11 @@ export class HTTPMITM {
       handles: this.buildHttpHandles({ ctx: params.ctx }),
     };
 
-    const callback_result = await this.executeHttpCallback({
-      callback_executor: async () =>
-        NormalizeHttpResult({
-          result: await params.callback_handler!({ context: callback_context }),
-        }),
+    const callback_result = await this.resolveHttpInterceptionResultFromChain({
+      callback_context,
+      get_plugin_callback: ({ plugin_instance }) =>
+        plugin_instance.http?.server_to_client?.responseHeaders,
+      instance_callback: params.callback_handler,
     });
 
     if (callback_result.state === "TERMINATE") {
@@ -1421,37 +1668,33 @@ export class HTTPMITM {
       headers: response_headers,
     });
 
-    let callback_result: http_interception_result_t = { state: "PASSTHROUGH" };
+    const callback_context: http_response_data_callback_context_t = {
+      connection_id: params.ctx.uuid,
+      connection_started_at_ms: connection_state.connection_started_at_ms,
+      intercepted_at_ms: Date.now(),
+      protocol: "http",
+      is_ssl: params.ctx.isSSL,
+      direction: "server_to_client",
+      ...BuildHttpNetworkDetails({ ctx: params.ctx }),
+      event: "response_data",
+      request: GetHttpRequestMetadata({ ctx: params.ctx }),
+      response: GetHttpResponseMetadata({ ctx: params.ctx }),
+      content_encoding: decoded_response_body.content_encoding,
+      content_encodings: decoded_response_body.content_encodings,
+      raw_data: decoded_response_body.raw_data,
+      decoded_data: decoded_response_body.decoded_data,
+      data_is_decoded: decoded_response_body.data_is_decoded,
+      decode_error: decoded_response_body.decode_error,
+      data: decoded_response_body.decoded_data,
+      handles: this.buildHttpHandles({ ctx: params.ctx }),
+    };
 
-    if (params.callback_handler) {
-      const callback_context: http_response_data_callback_context_t = {
-        connection_id: params.ctx.uuid,
-        connection_started_at_ms: connection_state.connection_started_at_ms,
-        intercepted_at_ms: Date.now(),
-        protocol: "http",
-        is_ssl: params.ctx.isSSL,
-        direction: "server_to_client",
-        ...BuildHttpNetworkDetails({ ctx: params.ctx }),
-        event: "response_data",
-        request: GetHttpRequestMetadata({ ctx: params.ctx }),
-        response: GetHttpResponseMetadata({ ctx: params.ctx }),
-        content_encoding: decoded_response_body.content_encoding,
-        content_encodings: decoded_response_body.content_encodings,
-        raw_data: decoded_response_body.raw_data,
-        decoded_data: decoded_response_body.decoded_data,
-        data_is_decoded: decoded_response_body.data_is_decoded,
-        decode_error: decoded_response_body.decode_error,
-        data: decoded_response_body.decoded_data,
-        handles: this.buildHttpHandles({ ctx: params.ctx }),
-      };
-
-      callback_result = await this.executeHttpCallback({
-        callback_executor: async () =>
-          NormalizeHttpResult({
-            result: await params.callback_handler!({ context: callback_context }),
-          }),
-      });
-    }
+    const callback_result = await this.resolveHttpInterceptionResultFromChain({
+      callback_context,
+      get_plugin_callback: ({ plugin_instance }) =>
+        plugin_instance.http?.server_to_client?.responseData,
+      instance_callback: params.callback_handler,
+    });
 
     if (callback_result.state === "TERMINATE") {
       this.terminateHttpConnection({ ctx: params.ctx, connection_state });
@@ -1566,6 +1809,19 @@ export class HTTPMITM {
     }
   }
 
+  private async executeHttpPluginCallback(params: {
+    callback_executor: () => Promise<plugin_http_interception_result_t>;
+  }): Promise<plugin_http_interception_result_t> {
+    try {
+      return await params.callback_executor();
+    } catch {
+      if (this.callback_error_policy === "PASSTHROUGH") {
+        return { state: "PASSTHROUGH" };
+      }
+      return { state: "TERMINATE" };
+    }
+  }
+
   private terminateHttpConnection(params: {
     ctx: IContext;
     connection_state: http_connection_state_t;
@@ -1589,9 +1845,11 @@ export class HTTPMITM {
 
   private async handleWebSocketUpgradeCallback(params: {
     ctx: IWebSocketContext;
-    callback_handler: (params: {
-      context: websocket_upgrade_callback_context_t;
-    }) => Promise<websocket_interception_result_t | void>;
+    callback_handler:
+      | ((params: {
+          context: websocket_upgrade_callback_context_t;
+        }) => Promise<websocket_interception_result_t | void>)
+      | undefined;
   }): Promise<void> {
     const upgrade_request = (
       params.ctx.clientToProxyWebSocket as WebSocket & {
@@ -1629,11 +1887,11 @@ export class HTTPMITM {
       },
     };
 
-    const callback_result = await this.executeWebSocketCallback({
-      callback_executor: async () =>
-        NormalizeWebSocketResult({
-          result: await params.callback_handler({ context: callback_context }),
-        }),
+    const callback_result = await this.resolveWebSocketInterceptionResultFromChain({
+      callback_context,
+      get_plugin_callback: ({ plugin_instance }) =>
+        plugin_instance.websocket?.onServerUpgrade,
+      instance_callback: params.callback_handler,
     });
 
     if (callback_result.state === "TERMINATE") {
@@ -1659,9 +1917,11 @@ export class HTTPMITM {
     flags: boolean | undefined;
     frame_type: "message" | "ping" | "pong";
     from_server: boolean;
-    callback_handler: (params: {
-      context: websocket_frame_callback_context_t;
-    }) => Promise<websocket_interception_result_t | void>;
+    callback_handler:
+      | ((params: {
+          context: websocket_frame_callback_context_t;
+        }) => Promise<websocket_interception_result_t | void>)
+      | undefined;
   }): Promise<{ message: WebSocket.RawData | string; flags: boolean | undefined }> {
     const callback_context: websocket_frame_callback_context_t = {
       connection_id: params.ctx.uuid,
@@ -1683,11 +1943,13 @@ export class HTTPMITM {
       },
     };
 
-    const callback_result = await this.executeWebSocketCallback({
-      callback_executor: async () =>
-        NormalizeWebSocketResult({
-          result: await params.callback_handler({ context: callback_context }),
-        }),
+    const callback_result = await this.resolveWebSocketInterceptionResultFromChain({
+      callback_context,
+      get_plugin_callback: ({ plugin_instance }) =>
+        params.from_server
+          ? plugin_instance.websocket?.onFrameReceived
+          : plugin_instance.websocket?.onFrameSent,
+      instance_callback: params.callback_handler,
     });
 
     if (callback_result.state === "TERMINATE") {
@@ -1714,9 +1976,9 @@ export class HTTPMITM {
     ctx: IWebSocketContext;
     code: number;
     message: Buffer;
-    callback_handler: (params: {
-      context: websocket_close_callback_context_t;
-    }) => Promise<void>;
+    callback_handler:
+      | ((params: { context: websocket_close_callback_context_t }) => Promise<void>)
+      | undefined;
   }): Promise<void> {
     const callback_context: websocket_close_callback_context_t = {
       connection_id: params.ctx.uuid,
@@ -1738,6 +2000,34 @@ export class HTTPMITM {
       },
     };
 
+    for (const plugin_instance of this.plugin_instances) {
+      const plugin_callback = plugin_instance.websocket?.onConnectionTerminated;
+      if (!plugin_callback) {
+        continue;
+      }
+
+      const plugin_result = await this.executeWebSocketPluginCallback({
+        callback_executor: async () =>
+          NormalizePluginWebSocketResult({
+            result: await plugin_callback({ context: callback_context }),
+          }),
+      });
+
+      if (plugin_result.state === "CONTINUE") {
+        continue;
+      }
+
+      if (plugin_result.state === "TERMINATE") {
+        this.terminateWebSocketConnection({ ctx: params.ctx });
+      }
+
+      return;
+    }
+
+    if (!params.callback_handler) {
+      return;
+    }
+
     try {
       await params.callback_handler({ context: callback_context });
     } catch (error) {
@@ -1753,6 +2043,19 @@ export class HTTPMITM {
     try {
       return await params.callback_executor();
     } catch (error) {
+      if (this.callback_error_policy === "PASSTHROUGH") {
+        return { state: "PASSTHROUGH" };
+      }
+      return { state: "TERMINATE" };
+    }
+  }
+
+  private async executeWebSocketPluginCallback(params: {
+    callback_executor: () => Promise<plugin_websocket_interception_result_t>;
+  }): Promise<plugin_websocket_interception_result_t> {
+    try {
+      return await params.callback_executor();
+    } catch {
       if (this.callback_error_policy === "PASSTHROUGH") {
         return { state: "PASSTHROUGH" };
       }

@@ -835,3 +835,557 @@ test("WebSocket callbacks can block and modify frame flow", async () => {
     await CloseWebSocketServer({ websocket_server });
   }
 });
+
+test("Plugin chain executes in deterministic order and falls through to instance callback after CONTINUE", async () => {
+  const execution_order: string[] = [];
+  let instance_callback_called = false;
+
+  class PluginOne {
+    plugin_name = "plugin_one";
+    http = {
+      client_to_server: {
+        requestHeaders: async () => {
+          execution_order.push("plugin_one");
+          return { state: "CONTINUE" as const };
+        },
+      },
+    };
+  }
+
+  class PluginTwo {
+    plugin_name = "plugin_two";
+    http = {
+      client_to_server: {
+        requestHeaders: async () => {
+          execution_order.push("plugin_two");
+          return { state: "CONTINUE" as const };
+        },
+      },
+    };
+  }
+
+  const upstream_server = await StartHttpServer({
+    handler: async (_request, response) => {
+      response.writeHead(200, { "content-type": "text/plain" });
+      response.end("ok");
+    },
+  });
+
+  const mitm_server = await StartHttpMitm({
+    start_params: {
+      host: "127.0.0.1",
+      listen_port: 0,
+      ssl_ca_dir: CreateSslCaDir({ test_name: "plugin_order_continue" }),
+      plugins: [new PluginOne(), new PluginTwo()],
+      http: {
+        client_to_server: {
+          requestHeaders: async () => {
+            instance_callback_called = true;
+            execution_order.push("instance");
+            return { state: "PASSTHROUGH" };
+          },
+        },
+      },
+    },
+  });
+
+  try {
+    const response = await SendHttpRequestViaProxy({
+      proxy_port: mitm_server.listen_port,
+      target_port: upstream_server.port,
+      method: "GET",
+      path: "/plugin-order",
+    });
+
+    assert.equal(response.status_code, 200);
+    assert.equal(instance_callback_called, true);
+    assert.deepEqual(execution_order, ["plugin_one", "plugin_two", "instance"]);
+  } finally {
+    await mitm_server.close();
+    await CloseHttpServer({ server: upstream_server.server });
+  }
+});
+
+test("Plugin PASSTHROUGH short-circuits chain and skips instance callback", async () => {
+  const execution_order: string[] = [];
+  let instance_callback_called = false;
+
+  class ContinuePlugin {
+    plugin_name = "continue_plugin";
+    http = {
+      client_to_server: {
+        requestHeaders: async () => {
+          execution_order.push("continue_plugin");
+          return { state: "CONTINUE" as const };
+        },
+      },
+    };
+  }
+
+  class PassthroughPlugin {
+    plugin_name = "passthrough_plugin";
+    http = {
+      client_to_server: {
+        requestHeaders: async () => {
+          execution_order.push("passthrough_plugin");
+          return { state: "PASSTHROUGH" as const };
+        },
+      },
+    };
+  }
+
+  class ShouldNotRunPlugin {
+    plugin_name = "should_not_run";
+    http = {
+      client_to_server: {
+        requestHeaders: async () => {
+          execution_order.push("should_not_run");
+          return { state: "CONTINUE" as const };
+        },
+      },
+    };
+  }
+
+  const upstream_server = await StartHttpServer({
+    handler: async (_request, response) => {
+      response.writeHead(200, { "content-type": "text/plain" });
+      response.end("ok");
+    },
+  });
+
+  const mitm_server = await StartHttpMitm({
+    start_params: {
+      host: "127.0.0.1",
+      listen_port: 0,
+      ssl_ca_dir: CreateSslCaDir({ test_name: "plugin_passthrough_shortcircuit" }),
+      plugins: [
+        new ContinuePlugin(),
+        new PassthroughPlugin(),
+        new ShouldNotRunPlugin(),
+      ],
+      http: {
+        client_to_server: {
+          requestHeaders: async () => {
+            instance_callback_called = true;
+            execution_order.push("instance");
+            return { state: "PASSTHROUGH" };
+          },
+        },
+      },
+    },
+  });
+
+  try {
+    const response = await SendHttpRequestViaProxy({
+      proxy_port: mitm_server.listen_port,
+      target_port: upstream_server.port,
+      method: "GET",
+      path: "/plugin-passthrough",
+    });
+
+    assert.equal(response.status_code, 200);
+    assert.equal(instance_callback_called, false);
+    assert.deepEqual(execution_order, ["continue_plugin", "passthrough_plugin"]);
+  } finally {
+    await mitm_server.close();
+    await CloseHttpServer({ server: upstream_server.server });
+  }
+});
+
+test("Plugin MODIFIED short-circuits chain and skips instance callback", async () => {
+  let upstream_header_seen = "";
+  let instance_callback_called = false;
+  const execution_order: string[] = [];
+
+  class ContinuePlugin {
+    plugin_name = "continue_plugin";
+    http = {
+      client_to_server: {
+        requestHeaders: async () => {
+          execution_order.push("continue_plugin");
+          return { state: "CONTINUE" as const };
+        },
+      },
+    };
+  }
+
+  class ModifiedPlugin {
+    plugin_name = "modified_plugin";
+    http = {
+      client_to_server: {
+        requestHeaders: async () => {
+          execution_order.push("modified_plugin");
+          return {
+            state: "MODIFIED" as const,
+            headers: [{ name: "x-from-plugin", value: "true" }],
+          };
+        },
+      },
+    };
+  }
+
+  class ShouldNotRunPlugin {
+    plugin_name = "should_not_run";
+    http = {
+      client_to_server: {
+        requestHeaders: async () => {
+          execution_order.push("should_not_run");
+          return { state: "CONTINUE" as const };
+        },
+      },
+    };
+  }
+
+  const upstream_server = await StartHttpServer({
+    handler: async (request, response) => {
+      upstream_header_seen = String(request.headers["x-from-plugin"] || "");
+      response.writeHead(200, { "content-type": "text/plain" });
+      response.end("ok");
+    },
+  });
+
+  const mitm_server = await StartHttpMitm({
+    start_params: {
+      host: "127.0.0.1",
+      listen_port: 0,
+      ssl_ca_dir: CreateSslCaDir({ test_name: "plugin_modified_shortcircuit" }),
+      plugins: [
+        new ContinuePlugin(),
+        new ModifiedPlugin(),
+        new ShouldNotRunPlugin(),
+      ],
+      http: {
+        client_to_server: {
+          requestHeaders: async () => {
+            instance_callback_called = true;
+            execution_order.push("instance");
+            return { state: "PASSTHROUGH" };
+          },
+        },
+      },
+    },
+  });
+
+  try {
+    const response = await SendHttpRequestViaProxy({
+      proxy_port: mitm_server.listen_port,
+      target_port: upstream_server.port,
+      method: "GET",
+      path: "/plugin-modified",
+    });
+
+    assert.equal(response.status_code, 200);
+    assert.equal(upstream_header_seen, "true");
+    assert.equal(instance_callback_called, false);
+    assert.deepEqual(execution_order, ["continue_plugin", "modified_plugin"]);
+  } finally {
+    await mitm_server.close();
+    await CloseHttpServer({ server: upstream_server.server });
+  }
+});
+
+test("Plugin TERMINATE short-circuits chain and aborts connection", async () => {
+  let upstream_request_count = 0;
+  let instance_callback_called = false;
+  const execution_order: string[] = [];
+
+  class ContinuePlugin {
+    plugin_name = "continue_plugin";
+    http = {
+      client_to_server: {
+        requestHeaders: async () => {
+          execution_order.push("continue_plugin");
+          return { state: "CONTINUE" as const };
+        },
+      },
+    };
+  }
+
+  class TerminatePlugin {
+    plugin_name = "terminate_plugin";
+    http = {
+      client_to_server: {
+        requestHeaders: async () => {
+          execution_order.push("terminate_plugin");
+          return { state: "TERMINATE" as const };
+        },
+      },
+    };
+  }
+
+  class ShouldNotRunPlugin {
+    plugin_name = "should_not_run";
+    http = {
+      client_to_server: {
+        requestHeaders: async () => {
+          execution_order.push("should_not_run");
+          return { state: "CONTINUE" as const };
+        },
+      },
+    };
+  }
+
+  const upstream_server = await StartHttpServer({
+    handler: async (_request, response) => {
+      upstream_request_count += 1;
+      response.writeHead(200, { "content-type": "text/plain" });
+      response.end("unexpected");
+    },
+  });
+
+  const mitm_server = await StartHttpMitm({
+    start_params: {
+      host: "127.0.0.1",
+      listen_port: 0,
+      ssl_ca_dir: CreateSslCaDir({ test_name: "plugin_terminate_shortcircuit" }),
+      plugins: [
+        new ContinuePlugin(),
+        new TerminatePlugin(),
+        new ShouldNotRunPlugin(),
+      ],
+      http: {
+        client_to_server: {
+          requestHeaders: async () => {
+            instance_callback_called = true;
+            execution_order.push("instance");
+            return { state: "PASSTHROUGH" };
+          },
+        },
+      },
+    },
+  });
+
+  try {
+    const result = await SendHttpRequestViaProxyAllowError({
+      proxy_port: mitm_server.listen_port,
+      target_port: upstream_server.port,
+      method: "GET",
+      path: "/plugin-terminate",
+    });
+    await Delay({ ms: 75 });
+
+    assert.equal(result.response, null);
+    assert.ok(result.error);
+    assert.equal(upstream_request_count, 0);
+    assert.equal(instance_callback_called, false);
+    assert.deepEqual(execution_order, ["continue_plugin", "terminate_plugin"]);
+  } finally {
+    await mitm_server.close();
+    await CloseHttpServer({ server: upstream_server.server });
+  }
+});
+
+test("Plugin missing hook is skipped and all CONTINUE reaches instance callback", async () => {
+  const execution_order: string[] = [];
+  let instance_callback_called = false;
+
+  class MissingHookPlugin {
+    plugin_name = "missing_hook";
+    http = {
+      client_to_server: {
+        requestData: async () => ({ state: "CONTINUE" as const }),
+      },
+    };
+  }
+
+  class ContinuePlugin {
+    plugin_name = "continue_plugin";
+    http = {
+      client_to_server: {
+        requestHeaders: async () => {
+          execution_order.push("continue_plugin");
+          return { state: "CONTINUE" as const };
+        },
+      },
+    };
+  }
+
+  const upstream_server = await StartHttpServer({
+    handler: async (_request, response) => {
+      response.writeHead(200, { "content-type": "text/plain" });
+      response.end("ok");
+    },
+  });
+
+  const mitm_server = await StartHttpMitm({
+    start_params: {
+      host: "127.0.0.1",
+      listen_port: 0,
+      ssl_ca_dir: CreateSslCaDir({ test_name: "plugin_missing_hook_continue" }),
+      plugins: [new MissingHookPlugin(), new ContinuePlugin()],
+      http: {
+        client_to_server: {
+          requestHeaders: async () => {
+            instance_callback_called = true;
+            execution_order.push("instance");
+            return { state: "PASSTHROUGH" };
+          },
+        },
+      },
+    },
+  });
+
+  try {
+    const response = await SendHttpRequestViaProxy({
+      proxy_port: mitm_server.listen_port,
+      target_port: upstream_server.port,
+      method: "GET",
+      path: "/plugin-missing-hook",
+    });
+
+    assert.equal(response.status_code, 200);
+    assert.equal(instance_callback_called, true);
+    assert.deepEqual(execution_order, ["continue_plugin", "instance"]);
+  } finally {
+    await mitm_server.close();
+    await CloseHttpServer({ server: upstream_server.server });
+  }
+});
+
+test("Invalid plugin without hooks is rejected with clear error", async () => {
+  class InvalidPlugin {
+    plugin_name = "invalid_plugin";
+  }
+
+  const httpmitm = new HTTPMITM();
+  await assert.rejects(
+    async () => {
+      await httpmitm.start({
+        host: "127.0.0.1",
+        listen_port: 0,
+        ssl_ca_dir: CreateSslCaDir({ test_name: "plugin_invalid" }),
+        plugins: [new InvalidPlugin()],
+      });
+    },
+    (error: Error) =>
+      error.message.includes("must implement at least one callback hook")
+  );
+});
+
+test("Plugin throw/reject behavior follows callback_error_policy", async () => {
+  class ThrowingPlugin {
+    plugin_name = "throwing_plugin";
+    http = {
+      client_to_server: {
+        requestHeaders: async () => {
+          throw new Error("plugin failure");
+        },
+      },
+    };
+  }
+
+  let terminate_policy_upstream_count = 0;
+  const terminate_policy_upstream_server = await StartHttpServer({
+    handler: async (_request, response) => {
+      terminate_policy_upstream_count += 1;
+      response.writeHead(200, { "content-type": "text/plain" });
+      response.end("unexpected");
+    },
+  });
+
+  const terminate_policy_mitm_server = await StartHttpMitm({
+    start_params: {
+      host: "127.0.0.1",
+      listen_port: 0,
+      ssl_ca_dir: CreateSslCaDir({ test_name: "plugin_throw_terminate_policy" }),
+      callback_error_policy: "TERMINATE",
+      plugins: [new ThrowingPlugin()],
+    },
+  });
+
+  try {
+    const terminate_result = await SendHttpRequestViaProxyAllowError({
+      proxy_port: terminate_policy_mitm_server.listen_port,
+      target_port: terminate_policy_upstream_server.port,
+      method: "GET",
+      path: "/plugin-throw-terminate",
+    });
+    await Delay({ ms: 75 });
+    assert.equal(terminate_result.response, null);
+    assert.ok(terminate_result.error);
+    assert.equal(terminate_policy_upstream_count, 0);
+  } finally {
+    await terminate_policy_mitm_server.close();
+    await CloseHttpServer({ server: terminate_policy_upstream_server.server });
+  }
+
+  let passthrough_policy_upstream_count = 0;
+  const passthrough_policy_upstream_server = await StartHttpServer({
+    handler: async (_request, response) => {
+      passthrough_policy_upstream_count += 1;
+      response.writeHead(200, { "content-type": "text/plain" });
+      response.end("ok");
+    },
+  });
+
+  const passthrough_policy_mitm_server = await StartHttpMitm({
+    start_params: {
+      host: "127.0.0.1",
+      listen_port: 0,
+      ssl_ca_dir: CreateSslCaDir({ test_name: "plugin_throw_passthrough_policy" }),
+      callback_error_policy: "PASSTHROUGH",
+      plugins: [new ThrowingPlugin()],
+    },
+  });
+
+  try {
+    const passthrough_result = await SendHttpRequestViaProxy({
+      proxy_port: passthrough_policy_mitm_server.listen_port,
+      target_port: passthrough_policy_upstream_server.port,
+      method: "GET",
+      path: "/plugin-throw-passthrough",
+    });
+    assert.equal(passthrough_result.status_code, 200);
+    assert.equal(passthrough_policy_upstream_count, 1);
+  } finally {
+    await passthrough_policy_mitm_server.close();
+    await CloseHttpServer({ server: passthrough_policy_upstream_server.server });
+  }
+});
+
+test("No plugins keeps legacy callback behavior unchanged", async () => {
+  let instance_callback_count = 0;
+  let upstream_header_seen = "";
+
+  const upstream_server = await StartHttpServer({
+    handler: async (request, response) => {
+      upstream_header_seen = String(request.headers["x-legacy"] || "");
+      response.writeHead(200, { "content-type": "text/plain" });
+      response.end("ok");
+    },
+  });
+
+  const mitm_server = await StartHttpMitm({
+    start_params: {
+      host: "127.0.0.1",
+      listen_port: 0,
+      ssl_ca_dir: CreateSslCaDir({ test_name: "plugin_none_legacy_unchanged" }),
+      http: {
+        client_to_server: {
+          requestHeaders: async () => {
+            instance_callback_count += 1;
+            return {
+              state: "MODIFIED",
+              headers: [{ name: "x-legacy", value: "true" }],
+            };
+          },
+        },
+      },
+    },
+  });
+
+  try {
+    const response = await SendHttpRequestViaProxy({
+      proxy_port: mitm_server.listen_port,
+      target_port: upstream_server.port,
+      method: "GET",
+      path: "/no-plugins",
+    });
+    assert.equal(response.status_code, 200);
+    assert.equal(instance_callback_count, 1);
+    assert.equal(upstream_header_seen, "true");
+  } finally {
+    await mitm_server.close();
+    await CloseHttpServer({ server: upstream_server.server });
+  }
+});

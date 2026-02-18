@@ -4,6 +4,7 @@ import type { Proxy } from "../../forked_code/proxy";
 import type { IContext, IWebSocketContext } from "../../forked_code/types";
 
 export type interception_state_t = "PASSTHROUGH" | "TERMINATE" | "MODIFIED";
+export type plugin_interception_state_t = interception_state_t | "CONTINUE";
 
 export type callback_error_policy_t = "TERMINATE" | "PASSTHROUGH";
 
@@ -24,6 +25,21 @@ export type http_interception_result_t = {
 
 export type websocket_interception_result_t = {
   state: interception_state_t;
+  headers?: header_entry_t[];
+  data?: WebSocket.RawData | string;
+  flags?: boolean;
+};
+
+export type plugin_http_interception_result_t = {
+  state: plugin_interception_state_t;
+  headers?: header_entry_t[];
+  data?: Buffer | string;
+  status_code?: number;
+  status_message?: string;
+};
+
+export type plugin_websocket_interception_result_t = {
+  state: plugin_interception_state_t;
   headers?: header_entry_t[];
   data?: WebSocket.RawData | string;
   flags?: boolean;
@@ -193,6 +209,38 @@ export type websocket_connection_terminated_callback_t = (params: {
   context: websocket_close_callback_context_t;
 }) => Promise<void>;
 
+export type plugin_http_request_headers_callback_t = (params: {
+  context: http_request_headers_callback_context_t;
+}) => Promise<plugin_http_interception_result_t | void>;
+
+export type plugin_http_request_data_callback_t = (params: {
+  context: http_request_data_callback_context_t;
+}) => Promise<plugin_http_interception_result_t | void>;
+
+export type plugin_http_response_headers_callback_t = (params: {
+  context: http_response_headers_callback_context_t;
+}) => Promise<plugin_http_interception_result_t | void>;
+
+export type plugin_http_response_data_callback_t = (params: {
+  context: http_response_data_callback_context_t;
+}) => Promise<plugin_http_interception_result_t | void>;
+
+export type plugin_websocket_server_upgrade_callback_t = (params: {
+  context: websocket_upgrade_callback_context_t;
+}) => Promise<plugin_websocket_interception_result_t | void>;
+
+export type plugin_websocket_frame_sent_callback_t = (params: {
+  context: websocket_frame_callback_context_t;
+}) => Promise<plugin_websocket_interception_result_t | void>;
+
+export type plugin_websocket_frame_received_callback_t = (params: {
+  context: websocket_frame_callback_context_t;
+}) => Promise<plugin_websocket_interception_result_t | void>;
+
+export type plugin_websocket_connection_terminated_callback_t = (params: {
+  context: websocket_close_callback_context_t;
+}) => Promise<plugin_websocket_interception_result_t | void>;
+
 export type http_callback_group_client_to_server_t = {
   requestHeaders?: http_request_headers_callback_t;
   requestData?: http_request_data_callback_t;
@@ -215,6 +263,34 @@ export type websocket_callback_group_t = {
   onConnectionTerminated?: websocket_connection_terminated_callback_t;
 };
 
+export interface httpmitm_plugin_http_hooks_client_to_server_i {
+  requestHeaders?: plugin_http_request_headers_callback_t;
+  requestData?: plugin_http_request_data_callback_t;
+}
+
+export interface httpmitm_plugin_http_hooks_server_to_client_i {
+  responseHeaders?: plugin_http_response_headers_callback_t;
+  responseData?: plugin_http_response_data_callback_t;
+}
+
+export interface httpmitm_plugin_http_hooks_i {
+  client_to_server?: httpmitm_plugin_http_hooks_client_to_server_i;
+  server_to_client?: httpmitm_plugin_http_hooks_server_to_client_i;
+}
+
+export interface httpmitm_plugin_websocket_hooks_i {
+  onServerUpgrade?: plugin_websocket_server_upgrade_callback_t;
+  onFrameSent?: plugin_websocket_frame_sent_callback_t;
+  onFrameReceived?: plugin_websocket_frame_received_callback_t;
+  onConnectionTerminated?: plugin_websocket_connection_terminated_callback_t;
+}
+
+export interface httpmitm_plugin_i {
+  plugin_name?: string;
+  http?: httpmitm_plugin_http_hooks_i;
+  websocket?: httpmitm_plugin_websocket_hooks_i;
+}
+
 export type httpmitm_start_params_t = {
   host?: string;
   listen_port?: number;
@@ -225,6 +301,7 @@ export type httpmitm_start_params_t = {
   https_listen_port?: number;
   force_chunked_request?: boolean;
   callback_error_policy?: callback_error_policy_t;
+  plugins?: httpmitm_plugin_i[];
   http?: http_callback_group_t;
   websocket?: websocket_callback_group_t;
 };
