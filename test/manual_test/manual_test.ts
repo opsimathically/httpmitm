@@ -28,38 +28,35 @@ import type { httpmitm_start_params_t } from '../../src';
         }
       },
       server_to_client: {
-        responseHeaders: async () => {
+        responseHeaders: async ({ context }) => {
           console.log('SERVER_TO_CLIENT: responseHeaders');
+
+          if (
+            context.remote_host === '192.168.11.35' &&
+            context.request.method === 'GET' &&
+            context.request.url === '/'
+          ) {
+            context.response.headers.push({ name: 'woohoo', value: 'yeehaw' });
+            return {
+              state: 'MODIFIED',
+              headers: context.response.headers
+            };
+          }
+
           return { state: 'PASSTHROUGH' };
         },
         responseData: async ({ context }) => {
-          /*
-          console.log('SERVER_TO_CLIENT: responseData');
-
-          const remote_ip =
-            context.handles.server_to_proxy_response?.socket?.remoteAddress ??
-            context.handles.proxy_to_server_request?.socket?.remoteAddress ??
-            null;
-
-          const remote_port =
-            context.handles.server_to_proxy_response?.socket?.remotePort ??
-            context.handles.proxy_to_server_request?.socket?.remotePort ??
-            null;
-
-          const remote_hostname =
-            context.handles.raw_context.proxyToServerRequestOptions?.host ??
-            null;
-            */
-
-          if (context.remote_host === '192.168.11.35') {
-            debugger;
+          if (
+            context.remote_host === '192.168.11.35' &&
+            context.request.method === 'GET' &&
+            context.request.url === '/'
+          ) {
             return {
               state: 'MODIFIED',
               data: 'MOOOO'
             };
           }
 
-          debugger;
           return { state: 'PASSTHROUGH' };
         }
       }
