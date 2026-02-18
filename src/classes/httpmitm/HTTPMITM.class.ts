@@ -1,4 +1,12 @@
 import type { IncomingHttpHeaders, OutgoingHttpHeaders } from "http";
+import {
+  brotliCompressSync,
+  brotliDecompressSync,
+  deflateSync,
+  gunzipSync,
+  gzipSync,
+  inflateSync,
+} from "zlib";
 import type WebSocket from "ws";
 import { Proxy } from "../../forked_code/proxy";
 import type { IContext, IWebSocketContext } from "../../forked_code/types";
@@ -33,6 +41,24 @@ type http_connection_state_t = {
   response_status_code_override: number | undefined;
   response_status_message_override: string | undefined;
   terminated: boolean;
+};
+
+type callback_network_details_t = {
+  remote_ip: string | null;
+  remote_port: number | null;
+  remote_host: string | null;
+  client_ip: string | null;
+  client_port: number | null;
+  client_host: string | null;
+};
+
+type decoded_body_result_t = {
+  raw_data: Buffer;
+  decoded_data: Buffer;
+  content_encoding: string | null;
+  content_encodings: string[];
+  data_is_decoded: boolean;
+  decode_error: string | null;
 };
 
 function CreateTerminatedError(): Error {
@@ -185,6 +211,285 @@ function GetHttpResponseMetadata(params: { ctx: IContext }) {
       headers: params.ctx.serverToProxyResponse?.headers || {},
     }),
   };
+}
+
+function NormalizePort(params: { port: unknown }): number | null {
+  const { port } = params;
+  if (typeof port === "number" && Number.isFinite(port)) {
+    return port;
+  }
+  if (typeof port === "string" && port.length > 0) {
+    const parsed_port = Number(port);
+    if (Number.isFinite(parsed_port)) {
+      return parsed_port;
+    }
+  }
+  return null;
+}
+
+function GetWebSocketSocketData(params: {
+  websocket:
+    | IWebSocketContext["clientToProxyWebSocket"]
+    | IWebSocketContext["proxyToServerWebSocket"];
+}):
+  | {
+      remoteAddress?: string;
+      remotePort?: number;
+    }
+  | undefined {
+  return (
+    params.websocket as WebSocket & {
+      _socket?: {
+        remoteAddress?: string;
+        remotePort?: number;
+      };
+    }
+  )?._socket;
+}
+
+function ParseWebSocketUrl(params: {
+  url: string | undefined;
+}): { host: string | null; port: number | null } {
+  if (!params.url) {
+    return {
+      host: null,
+      port: null,
+    };
+  }
+
+  try {
+    const parsed_url = new URL(params.url);
+    const default_port = parsed_url.protocol === "wss:" ? 443 : 80;
+    return {
+      host: parsed_url.hostname || null,
+      port: NormalizePort({
+        port: parsed_url.port.length > 0 ? parsed_url.port : default_port,
+      }),
+    };
+  } catch {
+    return {
+      host: null,
+      port: null,
+    };
+  }
+}
+
+function BuildHttpNetworkDetails(params: { ctx: IContext }): callback_network_details_t {
+  const client_socket = params.ctx.clientToProxyRequest.socket;
+  const response_socket = params.ctx.serverToProxyResponse?.socket;
+  const request_socket = params.ctx.proxyToServerRequest?.socket;
+  const proxy_request_options = params.ctx.proxyToServerRequestOptions;
+
+  const client_ip = client_socket?.remoteAddress ?? null;
+  const client_port = client_socket?.remotePort ?? null;
+
+  return {
+    remote_ip:
+      response_socket?.remoteAddress ?? request_socket?.remoteAddress ?? null,
+    remote_port:
+      response_socket?.remotePort ??
+      request_socket?.remotePort ??
+      NormalizePort({ port: proxy_request_options?.port }),
+    remote_host: proxy_request_options?.host ?? null,
+    client_ip,
+    client_port,
+    client_host: client_ip,
+  };
+}
+
+function BuildWebSocketNetworkDetails(params: {
+  ctx: IWebSocketContext;
+}): callback_network_details_t {
+  const client_socket = GetWebSocketSocketData({
+    websocket: params.ctx.clientToProxyWebSocket,
+  });
+  const remote_socket = GetWebSocketSocketData({
+    websocket: params.ctx.proxyToServerWebSocket,
+  });
+  const parsed_url = ParseWebSocketUrl({
+    url: params.ctx.proxyToServerWebSocketOptions?.url,
+  });
+
+  const client_ip = client_socket?.remoteAddress ?? null;
+  const client_port = client_socket?.remotePort ?? null;
+
+  return {
+    remote_ip: remote_socket?.remoteAddress ?? null,
+    remote_port: remote_socket?.remotePort ?? parsed_url.port,
+    remote_host: parsed_url.host,
+    client_ip,
+    client_port,
+    client_host: client_ip,
+  };
+}
+
+function ParseContentEncodings(params: { content_encoding: string | null }): string[] {
+  if (!params.content_encoding) {
+    return [];
+  }
+
+  return params.content_encoding
+    .split(",")
+    .map((encoding) => encoding.trim().toLowerCase())
+    .filter((encoding) => encoding.length > 0 && encoding !== "identity");
+}
+
+function ReadContentEncodingHeader(params: {
+  headers: IncomingHttpHeaders | OutgoingHttpHeaders | undefined;
+}): string | null {
+  const header_value = params.headers?.["content-encoding"];
+  if (typeof header_value === "undefined" || header_value === null) {
+    return null;
+  }
+  if (Array.isArray(header_value)) {
+    return header_value.join(", ");
+  }
+  return String(header_value);
+}
+
+function ApplyContentEncodingsToData(params: {
+  data: Buffer;
+  content_encodings: string[];
+  mode: "decode" | "encode";
+}): { data: Buffer; error: string | null; transformed: boolean } {
+  const encodings =
+    params.mode === "decode"
+      ? [...params.content_encodings].reverse()
+      : [...params.content_encodings];
+
+  let current_data = Buffer.from(params.data);
+  let transformed = false;
+
+  try {
+    for (const encoding of encodings) {
+      switch (encoding) {
+        case "gzip":
+          current_data =
+            params.mode === "decode"
+              ? gunzipSync(current_data)
+              : gzipSync(current_data);
+          transformed = true;
+          break;
+        case "deflate":
+          current_data =
+            params.mode === "decode"
+              ? inflateSync(current_data)
+              : deflateSync(current_data);
+          transformed = true;
+          break;
+        case "br":
+          current_data =
+            params.mode === "decode"
+              ? brotliDecompressSync(current_data)
+              : brotliCompressSync(current_data);
+          transformed = true;
+          break;
+        default:
+          return {
+            data: current_data,
+            error: `Unsupported content-encoding: ${encoding}`,
+            transformed,
+          };
+      }
+    }
+  } catch (error) {
+    return {
+      data: current_data,
+      error: error instanceof Error ? error.message : String(error),
+      transformed,
+    };
+  }
+
+  return {
+    data: current_data,
+    error: null,
+    transformed,
+  };
+}
+
+function DecodeBodyFromHeaders(params: {
+  raw_data: Buffer;
+  headers: IncomingHttpHeaders | OutgoingHttpHeaders | undefined;
+}): decoded_body_result_t {
+  const content_encoding = ReadContentEncodingHeader({ headers: params.headers });
+  const content_encodings = ParseContentEncodings({ content_encoding });
+
+  if (content_encodings.length === 0) {
+    return {
+      raw_data: params.raw_data,
+      decoded_data: Buffer.from(params.raw_data),
+      content_encoding,
+      content_encodings,
+      data_is_decoded: true,
+      decode_error: null,
+    };
+  }
+
+  const decoded_result = ApplyContentEncodingsToData({
+    data: params.raw_data,
+    content_encodings,
+    mode: "decode",
+  });
+
+  return {
+    raw_data: params.raw_data,
+    decoded_data: decoded_result.error
+      ? Buffer.from(params.raw_data)
+      : decoded_result.data,
+    content_encoding,
+    content_encodings,
+    data_is_decoded: !decoded_result.error,
+    decode_error: decoded_result.error,
+  };
+}
+
+function ApplyBodyToEncoding(params: {
+  decoded_data: Buffer;
+  content_encodings: string[];
+}): { encoded_data: Buffer; encode_error: string | null } {
+  if (params.content_encodings.length === 0) {
+    return {
+      encoded_data: params.decoded_data,
+      encode_error: null,
+    };
+  }
+
+  const encoded_result = ApplyContentEncodingsToData({
+    data: params.decoded_data,
+    content_encodings: params.content_encodings,
+    mode: "encode",
+  });
+
+  return {
+    encoded_data: encoded_result.data,
+    encode_error: encoded_result.error,
+  };
+}
+
+function ContentEncodingArraysEqual(params: {
+  left: string[];
+  right: string[];
+}): boolean {
+  if (params.left.length !== params.right.length) {
+    return false;
+  }
+  for (let index = 0; index < params.left.length; index += 1) {
+    if (params.left[index] !== params.right[index]) {
+      return false;
+    }
+  }
+  return true;
+}
+
+function NormalizeContentEncodingHeader(params: {
+  headers: OutgoingHttpHeaders;
+  content_encodings: string[];
+}): void {
+  if (params.content_encodings.length === 0) {
+    delete params.headers["content-encoding"];
+    return;
+  }
+  params.headers["content-encoding"] = params.content_encodings.join(", ");
 }
 
 export class HTTPMITM {
@@ -472,6 +777,7 @@ export class HTTPMITM {
       protocol: "http",
       is_ssl: params.ctx.isSSL,
       direction: "client_to_server",
+      ...BuildHttpNetworkDetails({ ctx: params.ctx }),
       event: "request_headers",
       request: GetHttpRequestMetadata({ ctx: params.ctx }),
       handles: this.buildHttpHandles({ ctx: params.ctx }),
@@ -529,10 +835,17 @@ export class HTTPMITM {
       | undefined;
   }): Promise<void> {
     const connection_state = this.getOrCreateHttpState({ ctx: params.ctx });
-    let request_body = connection_state.request_override_body;
-    if (!request_body) {
-      request_body = Buffer.concat(connection_state.request_chunks);
+    let request_body_raw = connection_state.request_override_body;
+    if (!request_body_raw) {
+      request_body_raw = Buffer.concat(connection_state.request_chunks);
     }
+    const request_headers =
+      (params.ctx.proxyToServerRequestOptions?.headers as OutgoingHttpHeaders) ||
+      {};
+    const decoded_request_body = DecodeBodyFromHeaders({
+      raw_data: request_body_raw,
+      headers: request_headers,
+    });
 
     let callback_result: http_interception_result_t = { state: "PASSTHROUGH" };
 
@@ -544,9 +857,16 @@ export class HTTPMITM {
         protocol: "http",
         is_ssl: params.ctx.isSSL,
         direction: "client_to_server",
+        ...BuildHttpNetworkDetails({ ctx: params.ctx }),
         event: "request_data",
         request: GetHttpRequestMetadata({ ctx: params.ctx }),
-        data: request_body,
+        content_encoding: decoded_request_body.content_encoding,
+        content_encodings: decoded_request_body.content_encodings,
+        raw_data: decoded_request_body.raw_data,
+        decoded_data: decoded_request_body.decoded_data,
+        data_is_decoded: decoded_request_body.data_is_decoded,
+        decode_error: decoded_request_body.decode_error,
+        data: decoded_request_body.decoded_data,
         handles: this.buildHttpHandles({ ctx: params.ctx }),
       };
 
@@ -558,14 +878,9 @@ export class HTTPMITM {
       });
     }
 
-    if (callback_result.data) {
-      request_body = ToBuffer({ data: callback_result.data }) || Buffer.alloc(0);
-    }
-
     if (callback_result.state === "MODIFIED" && callback_result.headers) {
       ApplyHeaderEntriesToObject({
-        headers: params.ctx.proxyToServerRequestOptions!
-          .headers as OutgoingHttpHeaders,
+        headers: request_headers,
         header_entries: callback_result.headers,
       });
     }
@@ -580,8 +895,51 @@ export class HTTPMITM {
       return;
     }
 
-    proxy_to_server_request.removeHeader("transfer-encoding");
-    proxy_to_server_request.setHeader("content-length", String(request_body.length));
+    let request_body_to_send = request_body_raw;
+    if (callback_result.state === "MODIFIED") {
+      const final_content_encodings = ParseContentEncodings({
+        content_encoding: ReadContentEncodingHeader({ headers: request_headers }),
+      });
+      NormalizeContentEncodingHeader({
+        headers: request_headers,
+        content_encodings: final_content_encodings,
+      });
+
+      let decoded_body_to_send: Buffer | undefined;
+      if (typeof callback_result.data !== "undefined") {
+        decoded_body_to_send =
+          ToBuffer({ data: callback_result.data }) || Buffer.alloc(0);
+      } else if (
+        decoded_request_body.data_is_decoded ||
+        decoded_request_body.content_encodings.length === 0
+      ) {
+        decoded_body_to_send = decoded_request_body.decoded_data;
+      } else if (
+        ContentEncodingArraysEqual({
+          left: decoded_request_body.content_encodings,
+          right: final_content_encodings,
+        })
+      ) {
+        decoded_body_to_send = undefined;
+      } else {
+        throw new Error(
+          "Unable to decode request body with current content-encoding."
+        );
+      }
+
+      if (decoded_body_to_send) {
+        const encoded_request_body = ApplyBodyToEncoding({
+          decoded_data: decoded_body_to_send,
+          content_encodings: final_content_encodings,
+        });
+        if (encoded_request_body.encode_error) {
+          throw new Error(encoded_request_body.encode_error);
+        }
+        request_body_to_send = encoded_request_body.encoded_data;
+      } else {
+        request_body_to_send = request_body_raw;
+      }
+    }
 
     if (callback_result.headers && callback_result.headers.length > 0) {
       ApplyHeaderEntriesToOutgoingMessage({
@@ -590,8 +948,23 @@ export class HTTPMITM {
       });
     }
 
-    if (request_body.length > 0) {
-      proxy_to_server_request.write(request_body);
+    if (typeof request_headers["content-encoding"] === "undefined") {
+      proxy_to_server_request.removeHeader("content-encoding");
+    } else {
+      proxy_to_server_request.setHeader(
+        "content-encoding",
+        request_headers["content-encoding"] as string | string[]
+      );
+    }
+
+    proxy_to_server_request.removeHeader("transfer-encoding");
+    proxy_to_server_request.setHeader(
+      "content-length",
+      String(request_body_to_send.length)
+    );
+
+    if (request_body_to_send.length > 0) {
+      proxy_to_server_request.write(request_body_to_send);
     }
   }
 
@@ -614,6 +987,7 @@ export class HTTPMITM {
       protocol: "http",
       is_ssl: params.ctx.isSSL,
       direction: "server_to_client",
+      ...BuildHttpNetworkDetails({ ctx: params.ctx }),
       event: "response_headers",
       request: GetHttpRequestMetadata({ ctx: params.ctx }),
       response: GetHttpResponseMetadata({ ctx: params.ctx }),
@@ -664,10 +1038,16 @@ export class HTTPMITM {
   }): Promise<void> {
     const connection_state = this.getOrCreateHttpState({ ctx: params.ctx });
 
-    let response_body = connection_state.response_override_body;
-    if (!response_body) {
-      response_body = Buffer.concat(connection_state.response_chunks);
+    let response_body_raw = connection_state.response_override_body;
+    if (!response_body_raw) {
+      response_body_raw = Buffer.concat(connection_state.response_chunks);
     }
+    const response_headers = (params.ctx.serverToProxyResponse?.headers ||
+      {}) as OutgoingHttpHeaders;
+    const decoded_response_body = DecodeBodyFromHeaders({
+      raw_data: response_body_raw,
+      headers: response_headers,
+    });
 
     let callback_result: http_interception_result_t = { state: "PASSTHROUGH" };
 
@@ -679,10 +1059,17 @@ export class HTTPMITM {
         protocol: "http",
         is_ssl: params.ctx.isSSL,
         direction: "server_to_client",
+        ...BuildHttpNetworkDetails({ ctx: params.ctx }),
         event: "response_data",
         request: GetHttpRequestMetadata({ ctx: params.ctx }),
         response: GetHttpResponseMetadata({ ctx: params.ctx }),
-        data: response_body,
+        content_encoding: decoded_response_body.content_encoding,
+        content_encodings: decoded_response_body.content_encodings,
+        raw_data: decoded_response_body.raw_data,
+        decoded_data: decoded_response_body.decoded_data,
+        data_is_decoded: decoded_response_body.data_is_decoded,
+        decode_error: decoded_response_body.decode_error,
+        data: decoded_response_body.decoded_data,
         handles: this.buildHttpHandles({ ctx: params.ctx }),
       };
 
@@ -699,13 +1086,9 @@ export class HTTPMITM {
       throw CreateTerminatedError();
     }
 
-    if (typeof callback_result.data !== "undefined") {
-      response_body = ToBuffer({ data: callback_result.data }) || Buffer.alloc(0);
-    }
-
     if (callback_result.headers) {
       ApplyHeaderEntriesToObject({
-        headers: params.ctx.serverToProxyResponse?.headers || {},
+        headers: response_headers,
         header_entries: callback_result.headers,
       });
     }
@@ -718,8 +1101,53 @@ export class HTTPMITM {
       connection_state.response_status_message_override = callback_result.status_message;
     }
 
-    const response_headers = params.ctx.serverToProxyResponse?.headers || {};
-    response_headers["content-length"] = String(response_body.length);
+    let response_body_to_send = response_body_raw;
+    if (callback_result.state === "MODIFIED") {
+      const final_content_encodings = ParseContentEncodings({
+        content_encoding: ReadContentEncodingHeader({ headers: response_headers }),
+      });
+      NormalizeContentEncodingHeader({
+        headers: response_headers,
+        content_encodings: final_content_encodings,
+      });
+
+      let decoded_body_to_send: Buffer | undefined;
+      if (typeof callback_result.data !== "undefined") {
+        decoded_body_to_send =
+          ToBuffer({ data: callback_result.data }) || Buffer.alloc(0);
+      } else if (
+        decoded_response_body.data_is_decoded ||
+        decoded_response_body.content_encodings.length === 0
+      ) {
+        decoded_body_to_send = decoded_response_body.decoded_data;
+      } else if (
+        ContentEncodingArraysEqual({
+          left: decoded_response_body.content_encodings,
+          right: final_content_encodings,
+        })
+      ) {
+        decoded_body_to_send = undefined;
+      } else {
+        throw new Error(
+          "Unable to decode response body with current content-encoding."
+        );
+      }
+
+      if (decoded_body_to_send) {
+        const encoded_response_body = ApplyBodyToEncoding({
+          decoded_data: decoded_body_to_send,
+          content_encodings: final_content_encodings,
+        });
+        if (encoded_response_body.encode_error) {
+          throw new Error(encoded_response_body.encode_error);
+        }
+        response_body_to_send = encoded_response_body.encoded_data;
+      } else {
+        response_body_to_send = response_body_raw;
+      }
+    }
+
+    response_headers["content-length"] = String(response_body_to_send.length);
     delete response_headers["transfer-encoding"];
 
     const status_code =
@@ -735,18 +1163,18 @@ export class HTTPMITM {
         params.ctx.proxyToClientResponse.writeHead(
           status_code,
           status_message,
-          Proxy.filterAndCanonizeHeaders(response_headers)
+          Proxy.filterAndCanonizeHeaders(response_headers as IncomingHttpHeaders)
         );
       } else {
         params.ctx.proxyToClientResponse.writeHead(
           status_code,
-          Proxy.filterAndCanonizeHeaders(response_headers)
+          Proxy.filterAndCanonizeHeaders(response_headers as IncomingHttpHeaders)
         );
       }
     }
 
-    if (response_body.length > 0) {
-      params.ctx.proxyToClientResponse.write(response_body);
+    if (response_body_to_send.length > 0) {
+      params.ctx.proxyToClientResponse.write(response_body_to_send);
     }
   }
 
@@ -805,6 +1233,7 @@ export class HTTPMITM {
       intercepted_at_ms: Date.now(),
       protocol: "websocket",
       is_ssl: params.ctx.isSSL,
+      ...BuildWebSocketNetworkDetails({ ctx: params.ctx }),
       event: "server_upgrade",
       direction: "client_to_server",
       upgrade_request: {
@@ -863,6 +1292,7 @@ export class HTTPMITM {
       intercepted_at_ms: Date.now(),
       protocol: "websocket",
       is_ssl: params.ctx.isSSL,
+      ...BuildWebSocketNetworkDetails({ ctx: params.ctx }),
       event: "frame",
       direction: params.from_server ? "server_to_client" : "client_to_server",
       frame_type: params.frame_type,
@@ -917,6 +1347,7 @@ export class HTTPMITM {
       intercepted_at_ms: Date.now(),
       protocol: "websocket",
       is_ssl: params.ctx.isSSL,
+      ...BuildWebSocketNetworkDetails({ ctx: params.ctx }),
       event: "connection_terminated",
       direction: params.ctx.closedByServer ? "server_to_client" : "client_to_server",
       closed_by_server: !!params.ctx.closedByServer,

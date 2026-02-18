@@ -66,6 +66,12 @@ export type http_callback_context_base_t = {
   protocol: "http";
   is_ssl: boolean;
   direction: "client_to_server" | "server_to_client";
+  remote_ip: string | null;
+  remote_port: number | null;
+  remote_host: string | null;
+  client_ip: string | null;
+  client_port: number | null;
+  client_host: string | null;
   handles: http_callback_handles_t;
 };
 
@@ -78,6 +84,12 @@ export type http_request_headers_callback_context_t =
 export type http_request_data_callback_context_t = http_callback_context_base_t & {
   event: "request_data";
   request: http_request_metadata_t;
+  content_encoding: string | null;
+  content_encodings: string[];
+  raw_data: Buffer;
+  decoded_data: Buffer;
+  data_is_decoded: boolean;
+  decode_error: string | null;
   data: Buffer;
 };
 
@@ -93,6 +105,12 @@ export type http_response_data_callback_context_t =
     event: "response_data";
     request: http_request_metadata_t;
     response: http_response_metadata_t;
+    content_encoding: string | null;
+    content_encodings: string[];
+    raw_data: Buffer;
+    decoded_data: Buffer;
+    data_is_decoded: boolean;
+    decode_error: string | null;
     data: Buffer;
   };
 
@@ -109,6 +127,12 @@ export type websocket_callback_context_base_t = {
   intercepted_at_ms: number;
   protocol: "websocket";
   is_ssl: boolean;
+  remote_ip: string | null;
+  remote_port: number | null;
+  remote_host: string | null;
+  client_ip: string | null;
+  client_port: number | null;
+  client_host: string | null;
   handles: websocket_callback_handles_t;
 };
 

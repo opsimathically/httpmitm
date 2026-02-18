@@ -32,8 +32,34 @@ import type { httpmitm_start_params_t } from '../../src';
           console.log('SERVER_TO_CLIENT: responseHeaders');
           return { state: 'PASSTHROUGH' };
         },
-        responseData: async () => {
+        responseData: async ({ context }) => {
+          /*
           console.log('SERVER_TO_CLIENT: responseData');
+
+          const remote_ip =
+            context.handles.server_to_proxy_response?.socket?.remoteAddress ??
+            context.handles.proxy_to_server_request?.socket?.remoteAddress ??
+            null;
+
+          const remote_port =
+            context.handles.server_to_proxy_response?.socket?.remotePort ??
+            context.handles.proxy_to_server_request?.socket?.remotePort ??
+            null;
+
+          const remote_hostname =
+            context.handles.raw_context.proxyToServerRequestOptions?.host ??
+            null;
+            */
+
+          if (context.remote_host === '192.168.11.35') {
+            debugger;
+            return {
+              state: 'MODIFIED',
+              data: 'MOOOO'
+            };
+          }
+
+          debugger;
           return { state: 'PASSTHROUGH' };
         }
       }

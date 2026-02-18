@@ -4,6 +4,7 @@ import http, { type IncomingMessage, type ServerResponse } from "node:http";
 import type { AddressInfo } from "node:net";
 import path from "node:path";
 import test from "node:test";
+import { brotliCompressSync, brotliDecompressSync, gunzipSync, gzipSync } from "node:zlib";
 import WebSocket, { WebSocketServer } from "ws";
 
 import { HTTPMITM } from "../../src";
@@ -17,6 +18,7 @@ type http_server_result_t = {
 type http_proxy_request_result_t = {
   status_code: number;
   headers: IncomingMessage["headers"];
+  raw_body: Buffer;
   body: string;
 };
 
@@ -75,18 +77,23 @@ async function SendHttpRequestViaProxy(params: {
   target_port: number;
   method: string;
   path: string;
-  body?: string;
+  body?: string | Buffer;
   headers?: Record<string, string>;
 }): Promise<http_proxy_request_result_t> {
   return new Promise((resolve, reject) => {
-    const request_body = params.body || "";
+    const request_body =
+      typeof params.body === "undefined"
+        ? Buffer.alloc(0)
+        : Buffer.isBuffer(params.body)
+          ? params.body
+          : Buffer.from(params.body);
     const request_headers: Record<string, string> = {
       host: `127.0.0.1:${params.target_port}`,
       ...params.headers,
     };
 
     if (request_body.length > 0 && !request_headers["content-length"]) {
-      request_headers["content-length"] = String(Buffer.byteLength(request_body));
+      request_headers["content-length"] = String(request_body.length);
     }
 
     const request = http.request(
@@ -103,10 +110,12 @@ async function SendHttpRequestViaProxy(params: {
           response_chunks.push(Buffer.from(chunk));
         });
         response.on("end", () => {
+          const raw_body = Buffer.concat(response_chunks);
           resolve({
             status_code: response.statusCode || 0,
             headers: response.headers,
-            body: Buffer.concat(response_chunks).toString("utf8"),
+            raw_body,
+            body: raw_body.toString("utf8"),
           });
         });
       }
@@ -356,6 +365,135 @@ test("HTTP MODIFIED updates body, headers, and recalculates content-length", asy
       response.headers["content-length"],
       String(Buffer.byteLength(modified_response_body))
     );
+  } finally {
+    await mitm_server.close();
+    await CloseHttpServer({ server: upstream_server.server });
+  }
+});
+
+test("HTTP responseData decodes gzip for callback and re-encodes after modification", async () => {
+  const upstream_server = await StartHttpServer({
+    handler: async (_request, response) => {
+      const compressed_body = gzipSync(Buffer.from("gzip-upstream-body", "utf8"));
+      response.writeHead(200, {
+        "content-type": "text/plain",
+        "content-encoding": "gzip",
+        "content-length": String(compressed_body.length),
+      });
+      response.end(compressed_body);
+    },
+  });
+
+  let callback_saw_decoded_text = "";
+
+  const mitm_server = await StartHttpMitm({
+    start_params: {
+      host: "127.0.0.1",
+      listen_port: 0,
+      ssl_ca_dir: CreateSslCaDir({ test_name: "gzip_decode_encode" }),
+      http: {
+        server_to_client: {
+          responseData: async ({ context }) => {
+            callback_saw_decoded_text = context.decoded_data.toString("utf8");
+            assert.equal(context.data.toString("utf8"), "gzip-upstream-body");
+            assert.equal(context.content_encoding, "gzip");
+            assert.deepEqual(context.content_encodings, ["gzip"]);
+            assert.equal(context.data_is_decoded, true);
+            assert.equal(context.decode_error, null);
+            return {
+              state: "MODIFIED",
+              data: "gzip-modified-body",
+            };
+          },
+        },
+      },
+    },
+  });
+
+  try {
+    const response = await SendHttpRequestViaProxy({
+      proxy_port: mitm_server.listen_port,
+      target_port: upstream_server.port,
+      method: "GET",
+      path: "/gzip",
+    });
+
+    assert.equal(callback_saw_decoded_text, "gzip-upstream-body");
+    assert.equal(response.headers["content-encoding"], "gzip");
+    assert.equal(
+      response.headers["content-length"],
+      String(response.raw_body.length)
+    );
+    assert.equal(gunzipSync(response.raw_body).toString("utf8"), "gzip-modified-body");
+  } finally {
+    await mitm_server.close();
+    await CloseHttpServer({ server: upstream_server.server });
+  }
+});
+
+test("HTTP requestData decodes brotli for callback and re-encodes after modification", async () => {
+  let upstream_content_encoding = "";
+  let upstream_decoded_body = "";
+
+  const upstream_server = await StartHttpServer({
+    handler: async (request, response) => {
+      const request_chunks: Buffer[] = [];
+      request.on("data", (chunk) => request_chunks.push(Buffer.from(chunk)));
+      request.on("end", () => {
+        const request_body_raw = Buffer.concat(request_chunks);
+        upstream_content_encoding = String(request.headers["content-encoding"] || "");
+        upstream_decoded_body = brotliDecompressSync(request_body_raw).toString("utf8");
+        response.writeHead(200, { "content-type": "text/plain" });
+        response.end("ok");
+      });
+    },
+  });
+
+  let callback_saw_decoded_request = "";
+
+  const mitm_server = await StartHttpMitm({
+    start_params: {
+      host: "127.0.0.1",
+      listen_port: 0,
+      ssl_ca_dir: CreateSslCaDir({ test_name: "brotli_decode_encode" }),
+      http: {
+        client_to_server: {
+          requestData: async ({ context }) => {
+            callback_saw_decoded_request = context.decoded_data.toString("utf8");
+            assert.equal(context.content_encoding, "br");
+            assert.deepEqual(context.content_encodings, ["br"]);
+            assert.equal(context.data_is_decoded, true);
+            assert.equal(context.decode_error, null);
+            return {
+              state: "MODIFIED",
+              data: "brotli-modified-request",
+            };
+          },
+        },
+      },
+    },
+  });
+
+  try {
+    const original_request_body = Buffer.from("brotli-original-request", "utf8");
+    const compressed_request_body = brotliCompressSync(original_request_body);
+
+    const response = await SendHttpRequestViaProxy({
+      proxy_port: mitm_server.listen_port,
+      target_port: upstream_server.port,
+      method: "POST",
+      path: "/brotli",
+      body: compressed_request_body,
+      headers: {
+        "content-encoding": "br",
+        "content-length": String(compressed_request_body.length),
+      },
+    });
+
+    assert.equal(response.status_code, 200);
+    assert.equal(callback_saw_decoded_request, "brotli-original-request");
+    assert.equal(upstream_content_encoding, "br");
+    assert.equal(upstream_decoded_body, "brotli-modified-request");
   } finally {
     await mitm_server.close();
     await CloseHttpServer({ server: upstream_server.server });
