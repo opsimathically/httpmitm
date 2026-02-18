@@ -1,7 +1,7 @@
 # HTTPMITM
 
 This project is a TypeScript MITM proxy built from a fork of `node-http-mitm-proxy`.
-It adds strict async interception for HTTP and WebSocket flows.
+It adds strict async interception for HTTP and WebSocket flows. This code is designed for my use case, and my purposes. I make no guarantee, promise, or otherwise for your use of this code.
 
 ## Core Behavior
 
@@ -125,30 +125,27 @@ import { HTTPMITM } from './classes/httpmitm/HTTPMITM.class';
 ### Plugin Example
 
 ```typescript
-import {
-  HTTPMITM,
-  type httpmitm_plugin_i
-} from "@opsimathically/httpmitm";
+import { HTTPMITM, type httpmitm_plugin_i } from '@opsimathically/httpmitm';
 
 class AddHeaderPlugin implements httpmitm_plugin_i {
-  plugin_name = "add_header";
+  plugin_name = 'add_header';
   http = {
     client_to_server: {
       requestHeaders: async () => ({
-        state: "MODIFIED",
-        headers: [{ name: "x-plugin", value: "applied" }]
+        state: 'MODIFIED',
+        headers: [{ name: 'x-plugin', value: 'applied' }]
       })
     }
   };
 }
 
 class AuditPlugin implements httpmitm_plugin_i {
-  plugin_name = "audit";
+  plugin_name = 'audit';
   http = {
     client_to_server: {
       requestHeaders: async ({ context }) => {
-        console.log("request", context.connection_id, context.request.url);
-        return { state: "CONTINUE" };
+        console.log('request', context.connection_id, context.request.url);
+        return { state: 'CONTINUE' };
       }
     }
   };
@@ -157,15 +154,15 @@ class AuditPlugin implements httpmitm_plugin_i {
 (async function () {
   const httpmitm = new HTTPMITM();
   await httpmitm.start({
-    host: "0.0.0.0",
+    host: '0.0.0.0',
     listen_port: 4444,
-    callback_error_policy: "TERMINATE",
+    callback_error_policy: 'TERMINATE',
     plugins: [new AuditPlugin(), new AddHeaderPlugin()],
     http: {
       client_to_server: {
         requestHeaders: async () => {
           // Runs only if every plugin returns CONTINUE.
-          return { state: "PASSTHROUGH" };
+          return { state: 'PASSTHROUGH' };
         }
       }
     }
@@ -274,12 +271,12 @@ WebSocket callback `context.handles` includes:
 
 ```typescript
 responseData: async ({ context }) => {
-  if (context.remote_host === "api.example.com" && context.client_ip) {
-    console.log("client", context.client_ip, "->", context.remote_host);
+  if (context.remote_host === 'api.example.com' && context.client_ip) {
+    console.log('client', context.client_ip, '->', context.remote_host);
   }
 
-  return { state: "PASSTHROUGH" };
-}
+  return { state: 'PASSTHROUGH' };
+};
 ```
 
 ## Test
