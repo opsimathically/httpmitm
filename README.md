@@ -1,44 +1,111 @@
-# Usage
+# HTTPMITM
 
-- Create a new github repo.
-- Clone it (gh repo clone opsimathically/reponame)
-- Download this as a zip from github.
-- Unpack it in your new repo directory (cp -a /path/to/source/. /path/to/destination/)
-- npm install
-- Unit tests should follow: ./test/your_test_dir/sometest.test.ts
-- use 'npm run test' to run all unit tests at once.
+This project is a TypeScript MITM proxy built from a fork of `node-http-mitm-proxy`.
+It adds strict async interception for HTTP and WebSocket flows.
 
-# Zod and Runtime Schema Validation
+## Core Behavior
 
-We use ts-to-zod to autogenerate schemas for runtime data validation.
-
-- [ts-to-zod github](https://github.com/fabien0102/ts-to-zod)
-- [ts-to-zod npm](https://www.npmjs.com/package/ts-to-zod)
-
-Schemas built examine types AND typedoc within your types file, so the schema can validate via lengths, regular expressions, etc. Please see the ts-to-zod documentation on what typedoc expressions are valid, and how to use them in your types.
-
-Running **_npm run ts-to-zod_** will autogenerate schemas based on the **_ts-to-zod.config.mjs_** file configuration.
-
-When you run **_npm run build_** it automatically runs ts-to-zod beforehand. However, when running unit tests you'll need to rebuild your schemas on your own if they've changed (aka: run **_npm run ts-to-zod_**).
-
-# Project Name
-
-Project description.
+- Interception callbacks are awaited before forwarding traffic.
+- Callback states:
+  - `PASSTHROUGH`: forward original data unchanged.
+  - `MODIFIED`: apply callback-provided headers/data, recalculate protocol metadata as needed.
+  - `TERMINATE`: abort the active connection.
+- Callback failures default to `TERMINATE` (configurable with `callback_error_policy`).
 
 ## Install
 
 ```bash
-npm install @opsimathically/yourproject
+npm install @opsimathically/httpmitm
 ```
 
-## Building from source
+## Build From Source
 
-This package is intended to be run via npm, but if you'd like to build from source,
-clone this repo, enter directory, and run `npm install` for dev dependencies, then run
-`npm run build`.
+```bash
+npm install
+npm run build
+```
 
 ## Usage
 
-[See API Reference for documentation](https://github.com/opsimathically/yourproject/docs/)
+```typescript
+import { HTTPMITM } from './classes/httpmitm/HTTPMITM.class';
 
-[See unit tests for more direct usage examples](https://github.com/opsimathically/yourproject/test/index.test.ts)
+(async function () {
+  const httpmitm = new HTTPMITM();
+
+  await httpmitm.start({
+    host: '0.0.0.0',
+    listen_port: 4444,
+    callback_error_policy: 'TERMINATE',
+    http: {
+      client_to_server: {
+        requestHeaders: async ({ context }) => {
+          return {
+            state: 'MODIFIED',
+            headers: [{ name: 'x-request-header', value: 'modified' }]
+          };
+        },
+        requestData: async ({ context }) => {
+          return {
+            state: 'MODIFIED',
+            headers: [{ name: 'x-request-body-modified', value: 'true' }],
+            data: 'modified request body'
+          };
+        }
+      },
+      server_to_client: {
+        responseHeaders: async ({ context }) => {
+          return {
+            state: 'MODIFIED',
+            headers: [{ name: 'x-response-header', value: 'modified' }]
+          };
+        },
+        responseData: async ({ context }) => {
+          return {
+            state: 'MODIFIED',
+            data: 'modified response body'
+          };
+        }
+      }
+    },
+    websocket: {
+      onServerUpgrade: async ({ context }) => {
+        return {
+          state: 'PASSTHROUGH'
+        };
+      },
+      onFrameSent: async ({ context }) => {
+        return {
+          state: 'MODIFIED',
+          data: 'client-to-server modified frame'
+        };
+      },
+      onFrameReceived: async ({ context }) => {
+        return {
+          state: 'MODIFIED',
+          data: 'server-to-client modified frame'
+        };
+      },
+      onConnectionTerminated: async ({ context }) => {
+        // optional cleanup/logging
+      }
+    }
+  });
+})();
+```
+
+## Callback Context
+
+Each callback receives rich metadata, including:
+
+- `connection_id`
+- protocol + direction + event metadata
+- headers/data snapshots
+- request/response/websocket handles
+- `connection_started_at_ms` and `intercepted_at_ms`
+
+## Test
+
+```bash
+npm test
+```
