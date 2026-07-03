@@ -1,87 +1,75 @@
-import assert from 'node:assert';
-import { once } from 'node:events';
-import http, { type IncomingMessage, type ServerResponse } from 'node:http';
-import type { AddressInfo } from 'node:net';
-import path from 'node:path';
-import test from 'node:test';
-import WebSocket, { WebSocketServer } from 'ws';
+import { HTTPMITM } from "../../src";
 
-import { HTTPMITM } from '../../src';
-import type { httpmitm_start_params_t } from '../../src';
-
-(async function () {
+(async function Main() {
   const httpmitm = new HTTPMITM();
 
   await httpmitm.start({
-    host: '127.0.0.1',
+    host: "127.0.0.1",
     listen_port: 6767,
-    ssl_ca_dir: '/tmp/httpmitm_test_ca_keycerts/',
+    ssl_ca_dir: "/tmp/httpmitm_test_ca_keycerts/",
     http: {
       client_to_server: {
         requestHeaders: async () => {
-          console.log('CLIENT_TO_SERVER: requestHeaders');
-          return { state: '' };
+          console.log("CLIENT_TO_SERVER: requestHeaders");
+          return { state: "PASSTHROUGH" };
         },
         requestData: async () => {
-          console.log('CLIENT_TO_SERVER: requestData');
-          return { state: 'PASSTHROUGH' };
-        }
+          console.log("CLIENT_TO_SERVER: requestData");
+          return { state: "PASSTHROUGH" };
+        },
       },
       server_to_client: {
         responseHeaders: async ({ context }) => {
-          console.log('SERVER_TO_CLIENT: responseHeaders');
+          console.log("SERVER_TO_CLIENT: responseHeaders");
 
           if (
-            context.remote_host === '192.168.11.35' &&
-            context.request.method === 'GET' &&
-            context.request.url === '/'
+            context.remote_host === "192.168.11.35" &&
+            context.request.method === "GET" &&
+            context.request.url === "/"
           ) {
-            context.response.headers.push({ name: 'woohoo', value: 'yeehaw' });
             return {
-              state: 'MODIFIED',
-              headers: context.response.headers
+              state: "MODIFIED",
+              headers: [
+                ...context.response.headers,
+                { name: "woohoo", value: "yeehaw" },
+              ],
             };
           }
 
-          return { state: 'PASSTHROUGH' };
+          return { state: "PASSTHROUGH" };
         },
         responseData: async ({ context }) => {
           if (
-            context.remote_host === '192.168.11.35' &&
-            context.request.method === 'GET' &&
-            context.request.url === '/'
+            context.remote_host === "192.168.11.35" &&
+            context.request.method === "GET" &&
+            context.request.url === "/"
           ) {
             return {
-              state: 'MODIFIED',
-              data: 'MOOOO'
+              state: "MODIFIED",
+              data: "MOOOO",
             };
           }
 
-          return { state: 'PASSTHROUGH' };
-        }
-      }
+          return { state: "PASSTHROUGH" };
+        },
+      },
     },
     websocket: {
-      onServerUpgrade: async (params) => {
-        console.log('WS: onServerUpgrade');
-        return { state: 'PASSTHROUGH' };
+      onServerUpgrade: async () => {
+        console.log("WS: onServerUpgrade");
+        return { state: "PASSTHROUGH" };
       },
-      onFrameSent: async (params) => {
-        console.log('WS: onFrameSent');
-        return {
-          state: 'PASSTHROUGH'
-        };
+      onFrameSent: async () => {
+        console.log("WS: onFrameSent");
+        return { state: "PASSTHROUGH" };
       },
-      onFrameReceived: async (params) => {
-        console.log('WS: onFrameRecieved');
-        debugger;
-        return {
-          state: 'PASSTHROUGH'
-        };
+      onFrameReceived: async () => {
+        console.log("WS: onFrameReceived");
+        return { state: "PASSTHROUGH" };
       },
-      onConnectionTerminated: async (params) => {
-        console.log('WS: onConnectionTerminated');
-      }
-    }
+      onConnectionTerminated: async () => {
+        console.log("WS: onConnectionTerminated");
+      },
+    },
   });
 })();

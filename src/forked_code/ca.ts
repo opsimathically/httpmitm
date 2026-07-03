@@ -4,7 +4,8 @@ import path from "path";
 import Forge from "node-forge";
 const { pki, md } = Forge;
 import async from "async";
-import ErrnoException = NodeJS.ErrnoException;
+
+type ErrnoException = NodeJS.ErrnoException;
 
 const CAattrs = [
   {

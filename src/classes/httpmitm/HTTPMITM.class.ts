@@ -1,5 +1,5 @@
 import type { IncomingHttpHeaders, OutgoingHttpHeaders } from "http";
-import { spawnSync } from "node:child_process";
+import { spawn } from "node:child_process";
 import {
   brotliCompressSync,
   brotliDecompressSync,
@@ -18,6 +18,8 @@ import type {
   header_value_t,
   httpmitm_plugin_i,
   http_interception_result_t,
+  httpmitm_limits_t,
+  httpmitm_logger_t,
   plugin_http_interception_result_t,
   plugin_websocket_interception_result_t,
   http_request_data_callback_context_t,
@@ -36,6 +38,13 @@ const HTTPMITM_STATE_KEY = "__httpmitm_state";
 const HTTPMITM_DEFER_RESPONSE_HEADERS_KEY = "__httpmitm_defer_response_headers";
 const HTTPMITM_TERMINATED_KEY = "__httpmitm_terminated";
 const HTTPMITM_TERMINATED_ERROR_CODE = "HTTPMITM_TERMINATED";
+const DEFAULT_LIMITS: Required<httpmitm_limits_t> = {
+  request_body_bytes: 10 * 1024 * 1024,
+  response_body_bytes: 25 * 1024 * 1024,
+  websocket_frame_bytes: 16 * 1024 * 1024,
+  callback_timeout_ms: 30_000,
+  binary_transform_timeout_ms: 5_000,
+};
 
 type http_connection_state_t = {
   connection_started_at_ms: number;
@@ -46,6 +55,8 @@ type http_connection_state_t = {
   response_status_code_override: number | undefined;
   response_status_message_override: string | undefined;
   terminated: boolean;
+  request_body_bytes: number;
+  response_body_bytes: number;
 };
 
 type callback_network_details_t = {
@@ -69,6 +80,15 @@ type decoded_body_result_t = {
 type binary_transform_result_t = {
   output_data: Buffer;
   error: string | null;
+};
+
+type normalized_logger_t = Required<httpmitm_logger_t>;
+
+const SILENT_LOGGER: normalized_logger_t = {
+  debug: () => undefined,
+  info: () => undefined,
+  warn: () => undefined,
+  error: () => undefined,
 };
 
 function CreateTerminatedError(): Error {
@@ -120,6 +140,62 @@ function NormalizeHeaderValue(params: { value: unknown }): header_value_t {
     return value.map((current_value) => String(current_value));
   }
   return String(value);
+}
+
+function NormalizeLimits(params: {
+  limits: httpmitm_limits_t | undefined;
+}): Required<httpmitm_limits_t> {
+  return {
+    request_body_bytes: NormalizePositiveNumber({
+      value: params.limits?.request_body_bytes,
+      default_value: DEFAULT_LIMITS.request_body_bytes,
+    }),
+    response_body_bytes: NormalizePositiveNumber({
+      value: params.limits?.response_body_bytes,
+      default_value: DEFAULT_LIMITS.response_body_bytes,
+    }),
+    websocket_frame_bytes: NormalizePositiveNumber({
+      value: params.limits?.websocket_frame_bytes,
+      default_value: DEFAULT_LIMITS.websocket_frame_bytes,
+    }),
+    callback_timeout_ms: NormalizePositiveNumber({
+      value: params.limits?.callback_timeout_ms,
+      default_value: DEFAULT_LIMITS.callback_timeout_ms,
+    }),
+    binary_transform_timeout_ms: NormalizePositiveNumber({
+      value: params.limits?.binary_transform_timeout_ms,
+      default_value: DEFAULT_LIMITS.binary_transform_timeout_ms,
+    }),
+  };
+}
+
+function NormalizeLogger(params: {
+  logger: httpmitm_logger_t | undefined;
+}): normalized_logger_t {
+  return {
+    debug: params.logger?.debug || SILENT_LOGGER.debug,
+    info: params.logger?.info || SILENT_LOGGER.info,
+    warn: params.logger?.warn || SILENT_LOGGER.warn,
+    error: params.logger?.error || SILENT_LOGGER.error,
+  };
+}
+
+function NormalizePositiveNumber(params: {
+  value: number | undefined;
+  default_value: number;
+}): number {
+  if (
+    typeof params.value === "number" &&
+    Number.isFinite(params.value) &&
+    params.value > 0
+  ) {
+    return params.value;
+  }
+  return params.default_value;
+}
+
+function CreateCallbackTimeoutError(params: { timeout_ms: number }): Error {
+  return new Error(`HTTPMITM callback timed out after ${params.timeout_ms}ms.`);
 }
 
 function HeadersObjectToEntries(params: {
@@ -420,37 +496,88 @@ function ReadContentEncodingHeader(params: {
   return String(header_value);
 }
 
-function RunBinaryTransform(params: {
+async function RunBinaryTransform(params: {
   command: string;
   args: string[];
   input_data: Buffer;
-}): binary_transform_result_t {
-  // Some encodings (notably zstd) are handled via system binaries to avoid
-  // hard runtime dependency on native Node addons.
-  const result = spawnSync(params.command, params.args, {
-    input: params.input_data,
-    encoding: null,
-    maxBuffer: Math.max(16 * 1024 * 1024, params.input_data.length * 8),
+  timeout_ms: number;
+  max_output_bytes: number;
+}): Promise<binary_transform_result_t> {
+  return await new Promise((resolve) => {
+    const child_process = spawn(params.command, params.args, {
+      stdio: ["pipe", "pipe", "pipe"],
+    });
+
+    const stdout_chunks: Buffer[] = [];
+    const stderr_chunks: Buffer[] = [];
+    let stdout_length = 0;
+    let settled = false;
+
+    const finish = (result: binary_transform_result_t) => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      clearTimeout(timeout_handle);
+      resolve(result);
+    };
+
+    const timeout_handle = setTimeout(() => {
+      child_process.kill("SIGKILL");
+      finish({
+        output_data: Buffer.alloc(0),
+        error: `${params.command} timed out after ${params.timeout_ms}ms.`,
+      });
+    }, params.timeout_ms);
+
+    child_process.on("error", (error) => {
+      finish({
+        output_data: Buffer.alloc(0),
+        error: error.message,
+      });
+    });
+
+    child_process.stdout.on("data", (chunk: Buffer) => {
+      stdout_length += chunk.length;
+      if (stdout_length > params.max_output_bytes) {
+        child_process.kill("SIGKILL");
+        finish({
+          output_data: Buffer.alloc(0),
+          error: `${params.command} exceeded max output size of ${params.max_output_bytes} bytes.`,
+        });
+        return;
+      }
+      stdout_chunks.push(Buffer.from(chunk));
+    });
+
+    child_process.stderr.on("data", (chunk: Buffer) => {
+      stderr_chunks.push(Buffer.from(chunk));
+    });
+
+    child_process.on("close", (status) => {
+      if (settled) {
+        return;
+      }
+      if (typeof status === "number" && status !== 0) {
+        finish({
+          output_data: Buffer.alloc(0),
+          error:
+            Buffer.concat(stderr_chunks).toString("utf8") || "Command failed.",
+        });
+        return;
+      }
+
+      finish({
+        output_data: Buffer.concat(stdout_chunks),
+        error: null,
+      });
+    });
+
+    child_process.stdin.on("error", () => {
+      // The child process error/close handlers resolve the transform result.
+    });
+    child_process.stdin.end(params.input_data);
   });
-
-  if (result.error) {
-    return {
-      output_data: Buffer.alloc(0),
-      error: result.error.message,
-    };
-  }
-
-  if (typeof result.status === "number" && result.status !== 0) {
-    return {
-      output_data: Buffer.alloc(0),
-      error: (result.stderr || Buffer.alloc(0)).toString("utf8") || "Command failed.",
-    };
-  }
-
-  return {
-    output_data: (result.stdout || Buffer.alloc(0)) as Buffer,
-    error: null,
-  };
 }
 
 class LsbBitWriter {
@@ -712,11 +839,12 @@ function DecodeUnixCompress(params: { encoded_data: Buffer }): binary_transform_
   };
 }
 
-function ApplyContentEncodingsToData(params: {
+async function ApplyContentEncodingsToData(params: {
   data: Buffer;
   content_encodings: string[];
   mode: "decode" | "encode";
-}): { data: Buffer; error: string | null; transformed: boolean } {
+  binary_transform_timeout_ms: number;
+}): Promise<{ data: Buffer; error: string | null; transformed: boolean }> {
   // HTTP applies encodings in order; decode must run the inverse order.
   const encodings =
     params.mode === "decode"
@@ -758,13 +886,15 @@ function ApplyContentEncodingsToData(params: {
           transformed = true;
           break;
         case "zstd": {
-          const zstd_result = RunBinaryTransform({
+          const zstd_result = await RunBinaryTransform({
             command: "zstd",
             args:
               params.mode === "decode"
                 ? ["-d", "-q", "-c", "--no-progress"]
                 : ["-q", "-c", "--no-progress"],
             input_data: current_data,
+            timeout_ms: params.binary_transform_timeout_ms,
+            max_output_bytes: Math.max(16 * 1024 * 1024, current_data.length * 8),
           });
           if (zstd_result.error) {
             return {
@@ -820,10 +950,11 @@ function ApplyContentEncodingsToData(params: {
   };
 }
 
-function DecodeBodyFromHeaders(params: {
+async function DecodeBodyFromHeaders(params: {
   raw_data: Buffer;
   headers: IncomingHttpHeaders | OutgoingHttpHeaders | undefined;
-}): decoded_body_result_t {
+  binary_transform_timeout_ms: number;
+}): Promise<decoded_body_result_t> {
   const content_encoding = ReadContentEncodingHeader({ headers: params.headers });
   const content_encodings = ParseContentEncodings({ content_encoding });
 
@@ -838,10 +969,11 @@ function DecodeBodyFromHeaders(params: {
     };
   }
 
-  const decoded_result = ApplyContentEncodingsToData({
+  const decoded_result = await ApplyContentEncodingsToData({
     data: params.raw_data,
     content_encodings,
     mode: "decode",
+    binary_transform_timeout_ms: params.binary_transform_timeout_ms,
   });
 
   return {
@@ -858,10 +990,11 @@ function DecodeBodyFromHeaders(params: {
   };
 }
 
-function ApplyBodyToEncoding(params: {
+async function ApplyBodyToEncoding(params: {
   decoded_data: Buffer;
   content_encodings: string[];
-}): { encoded_data: Buffer; encode_error: string | null } {
+  binary_transform_timeout_ms: number;
+}): Promise<{ encoded_data: Buffer; encode_error: string | null }> {
   if (params.content_encodings.length === 0) {
     return {
       encoded_data: params.decoded_data,
@@ -869,10 +1002,11 @@ function ApplyBodyToEncoding(params: {
     };
   }
 
-  const encoded_result = ApplyContentEncodingsToData({
+  const encoded_result = await ApplyContentEncodingsToData({
     data: params.decoded_data,
     content_encodings: params.content_encodings,
     mode: "encode",
+    binary_transform_timeout_ms: params.binary_transform_timeout_ms,
   });
 
   return {
@@ -908,22 +1042,43 @@ function NormalizeContentEncodingHeader(params: {
   params.headers["content-encoding"] = params.content_encodings.join(", ");
 }
 
+/**
+ * Preferred public MITM proxy wrapper.
+ *
+ * `HTTPMITM` manages the underlying forked proxy instance, registers awaited
+ * HTTP and WebSocket callbacks, enforces runtime limits, applies callback error
+ * policy, and exposes an awaitable shutdown path through `stop()` and the
+ * returned server handle.
+ */
 export class HTTPMITM {
   private proxy_instance: Proxy | undefined;
   private callback_error_policy: callback_error_policy_t;
   private plugin_instances: httpmitm_plugin_i[];
+  private limits: Required<httpmitm_limits_t>;
+  private logger: normalized_logger_t;
 
   constructor() {
     this.callback_error_policy = "TERMINATE";
     this.plugin_instances = [];
+    this.limits = DEFAULT_LIMITS;
+    this.logger = SILENT_LOGGER;
   }
 
+  /**
+   * Start the proxy with the provided interception callbacks and options.
+   *
+   * If this instance is already running, the existing proxy is stopped before a
+   * new proxy is started. Use `listen_port: 0` to request an ephemeral port and
+   * read the selected port from the returned `listen_port`.
+   */
   async start(params: httpmitm_start_params_t): Promise<httpmitm_server_t> {
     if (this.proxy_instance) {
       await this.stop();
     }
 
     this.callback_error_policy = params.callback_error_policy || "TERMINATE";
+    this.limits = NormalizeLimits({ limits: params.limits });
+    this.logger = NormalizeLogger({ logger: params.logger });
     this.plugin_instances = this.validateAndNormalizePlugins({
       plugins: params.plugins,
     });
@@ -942,6 +1097,8 @@ export class HTTPMITM {
           timeout: params.timeout,
           forceSNI: params.force_sni,
           httpsPort: params.https_listen_port,
+          httpAgent: params.http_agent,
+          httpsAgent: params.https_agent,
           forceChunkedRequest: params.force_chunked_request,
         },
         (error) => {
@@ -966,11 +1123,21 @@ export class HTTPMITM {
     };
   }
 
+  /**
+   * Stop the active proxy instance.
+   *
+   * The method awaits shutdown of the managed HTTP, HTTPS, WebSocket, and
+   * generated SSL servers where the underlying proxy exposes close handles.
+   */
   async stop(): Promise<void> {
     if (!this.proxy_instance) {
       return;
     }
-    this.proxy_instance.close();
+    if (typeof this.proxy_instance.closeAsync === "function") {
+      await this.proxy_instance.closeAsync();
+    } else {
+      this.proxy_instance.close();
+    }
     this.proxy_instance = undefined;
   }
 
@@ -1213,6 +1380,17 @@ export class HTTPMITM {
 
       params.proxy_instance.onRequestData((ctx, chunk, callback) => {
         const connection_state = this.getOrCreateHttpState({ ctx });
+        connection_state.request_body_bytes += chunk.length;
+        if (connection_state.request_body_bytes > this.limits.request_body_bytes) {
+          this.logger.warn("HTTPMITM request body limit exceeded.", {
+            connection_id: ctx.uuid,
+            limit_bytes: this.limits.request_body_bytes,
+            actual_bytes: connection_state.request_body_bytes,
+          });
+          this.terminateHttpConnection({ ctx, connection_state });
+          callback(CreateTerminatedError());
+          return;
+        }
         // Buffer request body so no upstream bytes are sent before async
         // callback completion.
         connection_state.request_chunks.push(Buffer.from(chunk));
@@ -1241,6 +1419,17 @@ export class HTTPMITM {
 
       params.proxy_instance.onResponseData((ctx, chunk, callback) => {
         const connection_state = this.getOrCreateHttpState({ ctx });
+        connection_state.response_body_bytes += chunk.length;
+        if (connection_state.response_body_bytes > this.limits.response_body_bytes) {
+          this.logger.warn("HTTPMITM response body limit exceeded.", {
+            connection_id: ctx.uuid,
+            limit_bytes: this.limits.response_body_bytes,
+            actual_bytes: connection_state.response_body_bytes,
+          });
+          this.terminateHttpConnection({ ctx, connection_state });
+          callback(CreateTerminatedError());
+          return;
+        }
         // Buffer response body for the same strict pause-before-forward model.
         connection_state.response_chunks.push(Buffer.from(chunk));
         callback(null, undefined);
@@ -1370,6 +1559,8 @@ export class HTTPMITM {
         response_status_code_override: undefined,
         response_status_message_override: undefined,
         terminated: false,
+        request_body_bytes: 0,
+        response_body_bytes: 0,
       } as http_connection_state_t;
     }
 
@@ -1467,9 +1658,10 @@ export class HTTPMITM {
     const request_headers =
       (params.ctx.proxyToServerRequestOptions?.headers as OutgoingHttpHeaders) ||
       {};
-    const decoded_request_body = DecodeBodyFromHeaders({
+    const decoded_request_body = await DecodeBodyFromHeaders({
       raw_data: request_body_raw,
       headers: request_headers,
+      binary_transform_timeout_ms: this.limits.binary_transform_timeout_ms,
     });
 
     const callback_context: http_request_data_callback_context_t = {
@@ -1551,9 +1743,10 @@ export class HTTPMITM {
       }
 
       if (decoded_body_to_send) {
-        const encoded_request_body = ApplyBodyToEncoding({
+        const encoded_request_body = await ApplyBodyToEncoding({
           decoded_data: decoded_body_to_send,
           content_encodings: final_content_encodings,
+          binary_transform_timeout_ms: this.limits.binary_transform_timeout_ms,
         });
         if (encoded_request_body.encode_error) {
           throw new Error(encoded_request_body.encode_error);
@@ -1663,9 +1856,10 @@ export class HTTPMITM {
     }
     const response_headers = (params.ctx.serverToProxyResponse?.headers ||
       {}) as OutgoingHttpHeaders;
-    const decoded_response_body = DecodeBodyFromHeaders({
+    const decoded_response_body = await DecodeBodyFromHeaders({
       raw_data: response_body_raw,
       headers: response_headers,
+      binary_transform_timeout_ms: this.limits.binary_transform_timeout_ms,
     });
 
     const callback_context: http_response_data_callback_context_t = {
@@ -1750,9 +1944,10 @@ export class HTTPMITM {
       }
 
       if (decoded_body_to_send) {
-        const encoded_response_body = ApplyBodyToEncoding({
+        const encoded_response_body = await ApplyBodyToEncoding({
           decoded_data: decoded_body_to_send,
           content_encodings: final_content_encodings,
+          binary_transform_timeout_ms: this.limits.binary_transform_timeout_ms,
         });
         if (encoded_response_body.encode_error) {
           throw new Error(encoded_response_body.encode_error);
@@ -1798,8 +1993,11 @@ export class HTTPMITM {
     callback_executor: () => Promise<http_interception_result_t>;
   }): Promise<http_interception_result_t> {
     try {
-      return await params.callback_executor();
-    } catch (error) {
+      return await this.runCallbackWithTimeout({
+        callback_executor: params.callback_executor,
+        callback_kind: "http",
+      });
+    } catch {
       // Callback exceptions are policy-driven: either fail-closed (TERMINATE)
       // or fail-open (PASSTHROUGH).
       if (this.callback_error_policy === "PASSTHROUGH") {
@@ -1813,7 +2011,10 @@ export class HTTPMITM {
     callback_executor: () => Promise<plugin_http_interception_result_t>;
   }): Promise<plugin_http_interception_result_t> {
     try {
-      return await params.callback_executor();
+      return await this.runCallbackWithTimeout({
+        callback_executor: params.callback_executor,
+        callback_kind: "http_plugin",
+      });
     } catch {
       if (this.callback_error_policy === "PASSTHROUGH") {
         return { state: "PASSTHROUGH" };
@@ -1923,6 +2124,18 @@ export class HTTPMITM {
         }) => Promise<websocket_interception_result_t | void>)
       | undefined;
   }): Promise<{ message: WebSocket.RawData | string; flags: boolean | undefined }> {
+    const message_buffer = ToBuffer({ data: params.message }) || Buffer.alloc(0);
+    if (message_buffer.length > this.limits.websocket_frame_bytes) {
+      this.logger.warn("HTTPMITM WebSocket frame limit exceeded.", {
+        connection_id: params.ctx.uuid,
+        limit_bytes: this.limits.websocket_frame_bytes,
+        actual_bytes: message_buffer.length,
+        direction: params.from_server ? "server_to_client" : "client_to_server",
+      });
+      this.terminateWebSocketConnection({ ctx: params.ctx });
+      throw CreateTerminatedError();
+    }
+
     const callback_context: websocket_frame_callback_context_t = {
       connection_id: params.ctx.uuid,
       connection_started_at_ms: Date.now(),
@@ -2029,7 +2242,12 @@ export class HTTPMITM {
     }
 
     try {
-      await params.callback_handler({ context: callback_context });
+      await this.runCallbackWithTimeout({
+        callback_executor: async () => {
+          await params.callback_handler!({ context: callback_context });
+        },
+        callback_kind: "websocket_close",
+      });
     } catch (error) {
       if (this.callback_error_policy === "TERMINATE") {
         throw error as Error;
@@ -2041,8 +2259,11 @@ export class HTTPMITM {
     callback_executor: () => Promise<websocket_interception_result_t>;
   }): Promise<websocket_interception_result_t> {
     try {
-      return await params.callback_executor();
-    } catch (error) {
+      return await this.runCallbackWithTimeout({
+        callback_executor: params.callback_executor,
+        callback_kind: "websocket",
+      });
+    } catch {
       if (this.callback_error_policy === "PASSTHROUGH") {
         return { state: "PASSTHROUGH" };
       }
@@ -2054,12 +2275,44 @@ export class HTTPMITM {
     callback_executor: () => Promise<plugin_websocket_interception_result_t>;
   }): Promise<plugin_websocket_interception_result_t> {
     try {
-      return await params.callback_executor();
+      return await this.runCallbackWithTimeout({
+        callback_executor: params.callback_executor,
+        callback_kind: "websocket_plugin",
+      });
     } catch {
       if (this.callback_error_policy === "PASSTHROUGH") {
         return { state: "PASSTHROUGH" };
       }
       return { state: "TERMINATE" };
+    }
+  }
+
+  private async runCallbackWithTimeout<callback_result_t>(params: {
+    callback_executor: () => Promise<callback_result_t>;
+    callback_kind: string;
+  }): Promise<callback_result_t> {
+    let timeout_handle: NodeJS.Timeout | undefined;
+
+    try {
+      return await Promise.race([
+        params.callback_executor(),
+        new Promise<callback_result_t>((_resolve, reject) => {
+          timeout_handle = setTimeout(() => {
+            const timeout_error = CreateCallbackTimeoutError({
+              timeout_ms: this.limits.callback_timeout_ms,
+            });
+            this.logger.warn("HTTPMITM callback timed out.", {
+              callback_kind: params.callback_kind,
+              timeout_ms: this.limits.callback_timeout_ms,
+            });
+            reject(timeout_error);
+          }, this.limits.callback_timeout_ms);
+        }),
+      ]);
+    } finally {
+      if (timeout_handle) {
+        clearTimeout(timeout_handle);
+      }
     }
   }
 
@@ -2081,9 +2334,18 @@ export class HTTPMITM {
       // ignore
     }
 
-    // @ts-ignore
-    params.ctx.clientToProxyWebSocket?._socket?.destroy();
-    // @ts-ignore
-    params.ctx.proxyToServerWebSocket?._socket?.destroy();
+    const client_websocket = params.ctx.clientToProxyWebSocket as
+      | (IWebSocketContext["clientToProxyWebSocket"] & {
+          _socket?: { destroy?: () => void };
+        })
+      | undefined;
+    const server_websocket = params.ctx.proxyToServerWebSocket as
+      | (IWebSocketContext["proxyToServerWebSocket"] & {
+          _socket?: { destroy?: () => void };
+        })
+      | undefined;
+
+    client_websocket?._socket?.destroy?.();
+    server_websocket?._socket?.destroy?.();
   }
 }

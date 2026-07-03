@@ -1,3 +1,4 @@
+/** Preferred public wrapper for HTTP, HTTPS, and WebSocket MITM interception. */
 export { HTTPMITM } from "./classes/httpmitm/HTTPMITM.class";
 export type {
   callback_error_policy_t,
@@ -38,6 +39,9 @@ export type {
   httpmitm_plugin_http_hooks_server_to_client_i,
   httpmitm_plugin_i,
   httpmitm_plugin_websocket_hooks_i,
+  httpmitm_limits_t,
+  httpmitm_log_metadata_t,
+  httpmitm_logger_t,
   websocket_callback_context_base_t,
   websocket_callback_group_t,
   websocket_callback_handles_t,
@@ -51,4 +55,8 @@ export type {
   websocket_upgrade_callback_context_t,
   websocket_upgrade_request_metadata_t,
 } from "./classes/httpmitm/httpmitm.types";
+/**
+ * Low-level forked proxy export retained for compatibility and advanced
+ * integrations. Prefer `HTTPMITM` for normal package usage.
+ */
 export { Proxy } from "./forked_code/proxy";

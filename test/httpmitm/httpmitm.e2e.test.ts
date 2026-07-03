@@ -1,9 +1,13 @@
 import assert from "node:assert";
 import { spawnSync } from "node:child_process";
 import { once } from "node:events";
+import { readFileSync } from "node:fs";
 import http, { type IncomingMessage, type ServerResponse } from "node:http";
+import https from "node:https";
 import type { AddressInfo } from "node:net";
+import net from "node:net";
 import path from "node:path";
+import tls from "node:tls";
 import test from "node:test";
 import {
   brotliCompressSync,
@@ -13,6 +17,7 @@ import {
   gzipSync,
   inflateSync,
 } from "node:zlib";
+import Forge from "node-forge";
 import WebSocket, { WebSocketServer } from "ws";
 
 import { HTTPMITM } from "../../src";
@@ -20,6 +25,11 @@ import type { httpmitm_start_params_t } from "../../src";
 
 type http_server_result_t = {
   server: http.Server;
+  port: number;
+};
+
+type https_server_result_t = {
+  server: https.Server;
   port: number;
 };
 
@@ -69,10 +79,120 @@ async function StartHttpServer(params: {
   };
 }
 
-async function CloseHttpServer(params: { server: http.Server }): Promise<void> {
+async function CloseHttpServer(params: {
+  server: http.Server | https.Server;
+}): Promise<void> {
   await new Promise<void>((resolve) => {
     params.server.close(() => resolve());
   });
+}
+
+function GenerateSelfSignedCertificate(): { key: string; cert: string } {
+  const keys = Forge.pki.rsa.generateKeyPair(2048);
+  const cert = Forge.pki.createCertificate();
+  cert.publicKey = keys.publicKey;
+  cert.serialNumber = "01";
+  cert.validity.notBefore = new Date();
+  cert.validity.notAfter = new Date();
+  cert.validity.notAfter.setFullYear(cert.validity.notBefore.getFullYear() + 1);
+  cert.setSubject([{ name: "commonName", value: "127.0.0.1" }]);
+  cert.setIssuer([{ name: "commonName", value: "127.0.0.1" }]);
+  cert.setExtensions([
+    {
+      name: "subjectAltName",
+      altNames: [
+        { type: 2, value: "localhost" },
+        { type: 7, ip: "127.0.0.1" },
+      ],
+    },
+  ]);
+  cert.sign(keys.privateKey, Forge.md.sha256.create());
+  return {
+    key: Forge.pki.privateKeyToPem(keys.privateKey),
+    cert: Forge.pki.certificateToPem(cert),
+  };
+}
+
+async function StartHttpsServer(params: {
+  handler: (request: IncomingMessage, response: ServerResponse) => void;
+}): Promise<https_server_result_t> {
+  const tls_options = GenerateSelfSignedCertificate();
+  const server = https.createServer(tls_options, params.handler);
+  await new Promise<void>((resolve) => {
+    server.listen(0, "127.0.0.1", () => resolve());
+  });
+
+  return {
+    server,
+    port: (server.address() as AddressInfo).port,
+  };
+}
+
+async function SendHttpsConnectRequestViaProxy(params: {
+  proxy_port: number;
+  target_port: number;
+  ca_cert_path: string;
+  path: string;
+}): Promise<http_proxy_request_result_t> {
+  const socket = net.connect({
+    host: "127.0.0.1",
+    port: params.proxy_port,
+  });
+  await once(socket, "connect");
+
+  socket.write(
+    [
+      `CONNECT localhost:${params.target_port} HTTP/1.1`,
+      `Host: localhost:${params.target_port}`,
+      "",
+      "",
+    ].join("\r\n")
+  );
+
+  let connect_response = Buffer.alloc(0);
+  while (!connect_response.includes(Buffer.from("\r\n\r\n"))) {
+    const [chunk] = (await once(socket, "data")) as [Buffer];
+    connect_response = Buffer.concat([connect_response, chunk]);
+  }
+  assert.match(connect_response.toString("utf8"), /^HTTP\/1\.1 200 OK/);
+
+  const tls_socket = tls.connect({
+    socket,
+    servername: "localhost",
+    ca: readFileSync(params.ca_cert_path),
+    rejectUnauthorized: true,
+  });
+  await once(tls_socket, "secureConnect");
+
+  tls_socket.write(
+    [
+      `GET ${params.path} HTTP/1.1`,
+      `Host: localhost:${params.target_port}`,
+      "Connection: close",
+      "",
+      "",
+    ].join("\r\n")
+  );
+
+  const response_chunks: Buffer[] = [];
+  tls_socket.on("data", (chunk) => {
+    response_chunks.push(Buffer.from(chunk));
+  });
+  await once(tls_socket, "end");
+
+  const raw_response = Buffer.concat(response_chunks);
+  const response_text = raw_response.toString("utf8");
+  const header_end = response_text.indexOf("\r\n\r\n");
+  const header_text = response_text.slice(0, header_end);
+  const body = response_text.slice(header_end + 4);
+  const status_code = Number(header_text.match(/^HTTP\/\d\.\d\s+(\d+)/)?.[1]);
+
+  return {
+    status_code,
+    headers: {},
+    raw_body: Buffer.from(body),
+    body,
+  };
 }
 
 async function CloseWebSocketServer(params: {
@@ -163,6 +283,7 @@ async function SendHttpRequestViaProxyAllowError(params: {
   target_port: number;
   method: string;
   path: string;
+  body?: string | Buffer;
 }): Promise<{ response: http_proxy_request_result_t | null; error: Error | null }> {
   try {
     const response = await SendHttpRequestViaProxy({
@@ -170,6 +291,7 @@ async function SendHttpRequestViaProxyAllowError(params: {
       target_port: params.target_port,
       method: params.method,
       path: params.path,
+      body: params.body,
     });
     return { response, error: null };
   } catch (error) {
@@ -746,6 +868,75 @@ test("HTTP responseData supports compress and x-compress encoding", async () => 
     assert.equal(x_compress_decoded, "x-compress-modified");
 
     assert.deepEqual(seen_encodings.sort(), ["compress", "x-compress"]);
+  } finally {
+    await mitm_server.close();
+    await CloseHttpServer({ server: upstream_server.server });
+  }
+});
+
+test("HTTP responseData passes through unsupported and corrupt content-encoding bodies", async () => {
+  const upstream_server = await StartHttpServer({
+    handler: async (request, response) => {
+      if (request.url === "/unsupported") {
+        response.writeHead(200, {
+          "content-type": "text/plain",
+          "content-encoding": "rot13",
+        });
+        response.end("unsupported-encoded-body");
+        return;
+      }
+
+      response.writeHead(200, {
+        "content-type": "text/plain",
+        "content-encoding": "gzip",
+      });
+      response.end("not-a-valid-gzip-body");
+    },
+  });
+
+  const decode_errors: Record<string, string> = {};
+  const callback_data: Record<string, string> = {};
+  const mitm_server = await StartHttpMitm({
+    start_params: {
+      host: "127.0.0.1",
+      listen_port: 0,
+      ssl_ca_dir: CreateSslCaDir({ test_name: "encoding_decode_errors" }),
+      http: {
+        server_to_client: {
+          responseData: async ({ context }) => {
+            const url = context.request.url || "";
+            decode_errors[url] = context.decode_error || "";
+            callback_data[url] = context.data.toString("utf8");
+            return { state: "PASSTHROUGH" };
+          },
+        },
+      },
+    },
+  });
+
+  try {
+    const unsupported_response = await SendHttpRequestViaProxy({
+      proxy_port: mitm_server.listen_port,
+      target_port: upstream_server.port,
+      method: "GET",
+      path: "/unsupported",
+    });
+    const corrupt_response = await SendHttpRequestViaProxy({
+      proxy_port: mitm_server.listen_port,
+      target_port: upstream_server.port,
+      method: "GET",
+      path: "/corrupt-gzip",
+    });
+
+    assert.equal(unsupported_response.status_code, 200);
+    assert.equal(unsupported_response.body, "unsupported-encoded-body");
+    assert.equal(callback_data["/unsupported"], "unsupported-encoded-body");
+    assert.match(decode_errors["/unsupported"], /Unsupported content-encoding: rot13/);
+
+    assert.equal(corrupt_response.status_code, 200);
+    assert.equal(corrupt_response.body, "not-a-valid-gzip-body");
+    assert.equal(callback_data["/corrupt-gzip"], "not-a-valid-gzip-body");
+    assert.ok(decode_errors["/corrupt-gzip"].length > 0);
   } finally {
     await mitm_server.close();
     await CloseHttpServer({ server: upstream_server.server });
@@ -1387,5 +1578,448 @@ test("No plugins keeps legacy callback behavior unchanged", async () => {
   } finally {
     await mitm_server.close();
     await CloseHttpServer({ server: upstream_server.server });
+  }
+});
+
+test("HTTPS CONNECT/TLS traffic is intercepted and can be modified", async () => {
+  const upstream_server = await StartHttpsServer({
+    handler: async (_request, response) => {
+      response.writeHead(200, { "content-type": "text/plain" });
+      response.end("secure-upstream");
+    },
+  });
+
+  let callback_saw_ssl = false;
+  const ssl_ca_dir = CreateSslCaDir({ test_name: "https_connect_tls" });
+  const mitm_server = await StartHttpMitm({
+    start_params: {
+      host: "127.0.0.1",
+      listen_port: 0,
+      ssl_ca_dir,
+      https_agent: new https.Agent({ rejectUnauthorized: false }),
+      http: {
+        server_to_client: {
+          responseData: async ({ context }) => {
+            callback_saw_ssl = context.is_ssl;
+            return {
+              state: "MODIFIED",
+              data: "secure-modified",
+            };
+          },
+        },
+      },
+    },
+  });
+
+  try {
+    const response = await SendHttpsConnectRequestViaProxy({
+      proxy_port: mitm_server.listen_port,
+      target_port: upstream_server.port,
+      ca_cert_path: path.join(ssl_ca_dir, "certs", "ca.pem"),
+      path: "/secure",
+    });
+
+    assert.equal(response.status_code, 200);
+    assert.equal(response.body, "secure-modified");
+    assert.equal(callback_saw_ssl, true);
+  } finally {
+    await mitm_server.close();
+    await CloseHttpServer({ server: upstream_server.server });
+  }
+});
+
+test("HTTP keep-alive can send repeated requests through one proxy instance", async () => {
+  let request_count = 0;
+  const upstream_server = await StartHttpServer({
+    handler: async (_request, response) => {
+      request_count += 1;
+      response.writeHead(200, { "content-type": "text/plain" });
+      response.end(`ok-${request_count}`);
+    },
+  });
+
+  const mitm_server = await StartHttpMitm({
+    start_params: {
+      host: "127.0.0.1",
+      listen_port: 0,
+      keep_alive: true,
+      ssl_ca_dir: CreateSslCaDir({ test_name: "keep_alive_repeated" }),
+    },
+  });
+
+  const agent = new http.Agent({ keepAlive: true, maxSockets: 1 });
+
+  async function sendKeepAliveRequest(pathname: string): Promise<string> {
+    return await new Promise((resolve, reject) => {
+      const request = http.request(
+        {
+          host: "127.0.0.1",
+          port: mitm_server.listen_port,
+          method: "GET",
+          path: `http://127.0.0.1:${upstream_server.port}${pathname}`,
+          headers: {
+            host: `127.0.0.1:${upstream_server.port}`,
+            connection: "keep-alive",
+          },
+          agent,
+        },
+        (response) => {
+          const chunks: Buffer[] = [];
+          response.on("data", (chunk) => chunks.push(Buffer.from(chunk)));
+          response.on("end", () =>
+            resolve(Buffer.concat(chunks).toString("utf8"))
+          );
+        }
+      );
+      request.on("error", reject);
+      request.end();
+    });
+  }
+
+  try {
+    assert.equal(await sendKeepAliveRequest("/one"), "ok-1");
+    assert.equal(await sendKeepAliveRequest("/two"), "ok-2");
+    assert.equal(request_count, 2);
+  } finally {
+    agent.destroy();
+    await mitm_server.close();
+    await CloseHttpServer({ server: upstream_server.server });
+  }
+});
+
+test("Concurrent delayed HTTP callbacks do not leak request data", async () => {
+  const upstream_server = await StartHttpServer({
+    handler: async (request, response) => {
+      const chunks: Buffer[] = [];
+      request.on("data", (chunk) => chunks.push(Buffer.from(chunk)));
+      request.on("end", () => {
+        response.writeHead(200, { "content-type": "text/plain" });
+        response.end(Buffer.concat(chunks));
+      });
+    },
+  });
+
+  const mitm_server = await StartHttpMitm({
+    start_params: {
+      host: "127.0.0.1",
+      listen_port: 0,
+      ssl_ca_dir: CreateSslCaDir({ test_name: "concurrent_callbacks" }),
+      http: {
+        client_to_server: {
+          requestData: async () => {
+            await Delay({ ms: 40 });
+            return { state: "PASSTHROUGH" };
+          },
+        },
+      },
+    },
+  });
+
+  try {
+    const responses = await Promise.all(
+      Array.from({ length: 6 }, async (_value, index) => {
+        return await SendHttpRequestViaProxy({
+          proxy_port: mitm_server.listen_port,
+          target_port: upstream_server.port,
+          method: "POST",
+          path: `/concurrent-${index}`,
+          body: `body-${index}`,
+        });
+      })
+    );
+
+    responses.forEach((response, index) => {
+      assert.equal(response.status_code, 200);
+      assert.equal(response.body, `body-${index}`);
+    });
+  } finally {
+    await mitm_server.close();
+    await CloseHttpServer({ server: upstream_server.server });
+  }
+});
+
+test("HTTP request and response body limits terminate oversized traffic and log diagnostics", async () => {
+  const logger_messages: string[] = [];
+
+  const request_limit_upstream = await StartHttpServer({
+    handler: async (_request, response) => {
+      response.writeHead(200, { "content-type": "text/plain" });
+      response.end("unexpected");
+    },
+  });
+
+  const request_limit_mitm = await StartHttpMitm({
+    start_params: {
+      host: "127.0.0.1",
+      listen_port: 0,
+      ssl_ca_dir: CreateSslCaDir({ test_name: "request_limit" }),
+      limits: { request_body_bytes: 4 },
+      logger: {
+        warn: (message) => logger_messages.push(message),
+      },
+      http: {
+        client_to_server: {
+          requestData: async () => ({ state: "PASSTHROUGH" }),
+        },
+      },
+    },
+  });
+
+  try {
+    const request_result = await SendHttpRequestViaProxyAllowError({
+      proxy_port: request_limit_mitm.listen_port,
+      target_port: request_limit_upstream.port,
+      method: "POST",
+      path: "/request-limit",
+      body: "too-large",
+    });
+    assert.equal(request_result.response, null);
+    assert.ok(request_result.error);
+    assert.ok(
+      logger_messages.includes("HTTPMITM request body limit exceeded.")
+    );
+  } finally {
+    await request_limit_mitm.close();
+    await CloseHttpServer({ server: request_limit_upstream.server });
+  }
+
+  const response_limit_upstream = await StartHttpServer({
+    handler: async (_request, response) => {
+      response.writeHead(200, { "content-type": "text/plain" });
+      response.end("too-large");
+    },
+  });
+
+  const response_limit_mitm = await StartHttpMitm({
+    start_params: {
+      host: "127.0.0.1",
+      listen_port: 0,
+      ssl_ca_dir: CreateSslCaDir({ test_name: "response_limit" }),
+      limits: { response_body_bytes: 4 },
+      logger: {
+        warn: (message) => logger_messages.push(message),
+      },
+      http: {
+        server_to_client: {
+          responseData: async () => ({ state: "PASSTHROUGH" }),
+        },
+      },
+    },
+  });
+
+  try {
+    const response_result = await SendHttpRequestViaProxyAllowError({
+      proxy_port: response_limit_mitm.listen_port,
+      target_port: response_limit_upstream.port,
+      method: "GET",
+      path: "/response-limit",
+    });
+    assert.equal(response_result.response, null);
+    assert.ok(response_result.error);
+    assert.ok(
+      logger_messages.includes("HTTPMITM response body limit exceeded.")
+    );
+  } finally {
+    await response_limit_mitm.close();
+    await CloseHttpServer({ server: response_limit_upstream.server });
+  }
+});
+
+test("HTTP callback timeout follows terminate policy and logs diagnostic", async () => {
+  const logger_messages: string[] = [];
+  const upstream_server = await StartHttpServer({
+    handler: async (_request, response) => {
+      response.writeHead(200, { "content-type": "text/plain" });
+      response.end("unexpected");
+    },
+  });
+
+  const mitm_server = await StartHttpMitm({
+    start_params: {
+      host: "127.0.0.1",
+      listen_port: 0,
+      ssl_ca_dir: CreateSslCaDir({ test_name: "callback_timeout_http" }),
+      limits: { callback_timeout_ms: 20 },
+      logger: {
+        warn: (message) => logger_messages.push(message),
+      },
+      http: {
+        client_to_server: {
+          requestHeaders: async () => {
+            await Delay({ ms: 100 });
+            return { state: "PASSTHROUGH" };
+          },
+        },
+      },
+    },
+  });
+
+  try {
+    const result = await SendHttpRequestViaProxyAllowError({
+      proxy_port: mitm_server.listen_port,
+      target_port: upstream_server.port,
+      method: "GET",
+      path: "/timeout",
+    });
+    assert.equal(result.response, null);
+    assert.ok(result.error);
+    assert.ok(logger_messages.includes("HTTPMITM callback timed out."));
+  } finally {
+    await mitm_server.close();
+    await CloseHttpServer({ server: upstream_server.server });
+  }
+});
+
+test("WebSocket frame limit and callback timeout terminate connections", async () => {
+  const websocket_server = new WebSocketServer({ host: "127.0.0.1", port: 0 });
+  await once(websocket_server, "listening");
+  const websocket_port = (websocket_server.address() as AddressInfo).port;
+  websocket_server.on("connection", (socket) => {
+    socket.on("message", (message) => socket.send(message));
+  });
+
+  const logger_messages: string[] = [];
+  const frame_limit_mitm = await StartHttpMitm({
+    start_params: {
+      host: "127.0.0.1",
+      listen_port: 0,
+      ssl_ca_dir: CreateSslCaDir({ test_name: "websocket_frame_limit" }),
+      limits: { websocket_frame_bytes: 4 },
+      logger: {
+        warn: (message) => logger_messages.push(message),
+      },
+      websocket: {
+        onFrameSent: async () => ({ state: "PASSTHROUGH" }),
+      },
+    },
+  });
+
+  const frame_limit_client = new WebSocket(
+    `ws://127.0.0.1:${frame_limit_mitm.listen_port}/socket`,
+    { headers: { host: `127.0.0.1:${websocket_port}` } }
+  );
+
+  try {
+    await once(frame_limit_client, "open");
+    frame_limit_client.send("too-large");
+    await once(frame_limit_client, "close");
+    assert.ok(
+      logger_messages.includes("HTTPMITM WebSocket frame limit exceeded.")
+    );
+  } finally {
+    await frame_limit_mitm.close();
+  }
+
+  const timeout_mitm = await StartHttpMitm({
+    start_params: {
+      host: "127.0.0.1",
+      listen_port: 0,
+      ssl_ca_dir: CreateSslCaDir({ test_name: "websocket_callback_timeout" }),
+      limits: { callback_timeout_ms: 20 },
+      logger: {
+        warn: (message) => logger_messages.push(message),
+      },
+      websocket: {
+        onFrameSent: async () => {
+          await Delay({ ms: 100 });
+          return { state: "PASSTHROUGH" };
+        },
+      },
+    },
+  });
+
+  const timeout_client = new WebSocket(
+    `ws://127.0.0.1:${timeout_mitm.listen_port}/socket`,
+    { headers: { host: `127.0.0.1:${websocket_port}` } }
+  );
+
+  try {
+    await once(timeout_client, "open");
+    timeout_client.send("ping");
+    await once(timeout_client, "close");
+    assert.ok(logger_messages.includes("HTTPMITM callback timed out."));
+  } finally {
+    await timeout_mitm.close();
+    await CloseWebSocketServer({ websocket_server });
+  }
+});
+
+test("zstd missing binary is surfaced as decode_error without crashing passthrough", async () => {
+  const original_path = process.env.PATH;
+  process.env.PATH = "";
+
+  const upstream_server = await StartHttpServer({
+    handler: async (_request, response) => {
+      response.writeHead(200, {
+        "content-type": "application/octet-stream",
+        "content-encoding": "zstd",
+      });
+      response.end("not-zstd");
+    },
+  });
+
+  let decode_error = "";
+  const mitm_server = await StartHttpMitm({
+    start_params: {
+      host: "127.0.0.1",
+      listen_port: 0,
+      ssl_ca_dir: CreateSslCaDir({ test_name: "zstd_missing_binary" }),
+      limits: { binary_transform_timeout_ms: 20 },
+      http: {
+        server_to_client: {
+          responseData: async ({ context }) => {
+            decode_error = context.decode_error || "";
+            return { state: "PASSTHROUGH" };
+          },
+        },
+      },
+    },
+  });
+
+  try {
+    const response = await SendHttpRequestViaProxy({
+      proxy_port: mitm_server.listen_port,
+      target_port: upstream_server.port,
+      method: "GET",
+      path: "/zstd-missing",
+    });
+
+    assert.equal(response.status_code, 200);
+    assert.equal(response.body, "not-zstd");
+    assert.match(decode_error, /zstd|ENOENT/i);
+  } finally {
+    await mitm_server.close();
+    await CloseHttpServer({ server: upstream_server.server });
+    if (typeof original_path === "undefined") {
+      delete process.env.PATH;
+    } else {
+      process.env.PATH = original_path;
+    }
+  }
+});
+
+test("stop awaits shutdown and allows immediate port reuse", async () => {
+  const first_mitm_server = await StartHttpMitm({
+    start_params: {
+      host: "127.0.0.1",
+      listen_port: 0,
+      ssl_ca_dir: CreateSslCaDir({ test_name: "stop_reuse_first" }),
+    },
+  });
+  const reused_port = first_mitm_server.listen_port;
+  await first_mitm_server.close();
+
+  const second_mitm_server = await StartHttpMitm({
+    start_params: {
+      host: "127.0.0.1",
+      listen_port: reused_port,
+      ssl_ca_dir: CreateSslCaDir({ test_name: "stop_reuse_second" }),
+    },
+  });
+
+  try {
+    assert.equal(second_mitm_server.listen_port, reused_port);
+  } finally {
+    await second_mitm_server.close();
   }
 });

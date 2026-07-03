@@ -17,7 +17,9 @@ export default [
     languageOptions: {
       parser: tseslint.parser,
       parserOptions: {
-        projectService: true
+        projectService: {
+          allowDefaultProject: ['scripts/*.mjs', 'tsup.config.ts']
+        }
       },
       globals: { ...globals.browser, ...globals.node }
     }
@@ -35,6 +37,18 @@ export default [
       '@typescript-eslint/no-explicit-any': 'off',
       'no-debugger': 'off',
       'no-empty': 'off'
+    }
+  },
+  {
+    files: ['src/forked_code/**'],
+    rules: {
+      '@typescript-eslint/ban-ts-comment': 'off',
+      '@typescript-eslint/consistent-type-imports': 'off',
+      '@typescript-eslint/no-require-imports': 'off',
+      '@typescript-eslint/no-unsafe-function-type': 'off',
+      '@typescript-eslint/no-unused-vars': 'off',
+      '@typescript-eslint/no-unused-expressions': 'off',
+      'no-extra-boolean-cast': 'off'
     }
   }
 ];

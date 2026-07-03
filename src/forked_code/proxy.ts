@@ -258,6 +258,52 @@ export class Proxy implements IProxy {
     return this;
   }
 
+  async closeAsync() {
+    const closeServer = async (server) => {
+      if (!server) {
+        return;
+      }
+      await new Promise((resolve) => {
+        try {
+          server.close(() => resolve(undefined));
+        } catch {
+          resolve(undefined);
+        }
+      });
+    };
+
+    const closePromises = [];
+
+    if (this.wsServer) {
+      closePromises.push(closeServer(this.wsServer));
+      delete this.wsServer;
+    }
+    if (this.wssServer) {
+      closePromises.push(closeServer(this.wssServer));
+      delete this.wssServer;
+    }
+    if (this.httpServer) {
+      closePromises.push(closeServer(this.httpServer));
+      delete this.httpServer;
+    }
+    if (this.httpsServer) {
+      closePromises.push(closeServer(this.httpsServer));
+      delete this.httpsServer;
+    }
+    if (this.sslServers) {
+      for (const srvName of Object.keys(this.sslServers)) {
+        const sslServer = this.sslServers[srvName];
+        closePromises.push(closeServer(sslServer.wsServer));
+        closePromises.push(closeServer(sslServer.server));
+        delete this.sslServers[srvName];
+      }
+    }
+
+    this.sslServers = {};
+    await Promise.all(closePromises);
+    return this;
+  }
+
   onError(fn: OnErrorParams) {
     this.onErrorHandlers.push(fn);
     return this;

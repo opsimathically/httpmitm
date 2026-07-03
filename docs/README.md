@@ -1,0 +1,27 @@
+**@opsimathically/httpmitm**
+
+***
+
+# @opsimathically/httpmitm Documentation
+
+`@opsimathically/httpmitm` is a Node.js MITM proxy library for controlled HTTP, HTTPS, and WebSocket inspection. It is intended for authorized test harnesses, debugging tools, protocol experiments, and internal automation where traffic interception is expected and permitted.
+
+The preferred public API is `HTTPMITM`. The lower-level `Proxy` export remains available as a compatibility and escape-hatch surface for users who need the forked proxy internals directly.
+
+## Start Here
+
+- [Getting Started](documents/getting-started.md): install, import, start, and stop the proxy.
+- [HTTP Interception](documents/http-interception.md): headers, bodies, content encoding, and result states.
+- [HTTPS And CA Handling](documents/https-and-ca.md): CONNECT interception, generated CA files, trust, and upstream TLS agents.
+- [WebSocket Interception](documents/websocket-interception.md): upgrade handling, frames, close events, and limits.
+- [Plugins](documents/plugins.md): deterministic plugin ordering and `CONTINUE` behavior.
+- [Operations And Security](documents/operations-and-security.md): limits, logger behavior, zstd, audit policy, and package contents.
+- [Troubleshooting](documents/troubleshooting.md): common runtime failures and where to look first.
+
+## Safety Notice
+
+MITM tooling can expose credentials, session tokens, private payloads, and certificate authority material. Use this package only for systems you own or are explicitly authorized to inspect. Protect `ssl_ca_dir` as sensitive credential storage, and avoid logging full request or response bodies unless your environment is designed for that data.
+
+## API Reference
+
+The API reference in this directory is generated from TypeScript declarations and TSDoc comments. It documents the public classes, callback contexts, interception result shapes, plugin interfaces, logger, limits, and server lifecycle return type.

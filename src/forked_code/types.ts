@@ -116,7 +116,6 @@ export type OnErrorParams = (
 ) => void;
 export type OnConnectParams = (
   req: http.IncomingMessage,
-  // eslint-disable-next-line @typescript-eslint/consistent-type-imports
   socket: import("stream").Duplex,
   head: any,
   callback: ErrorCallback
@@ -132,6 +131,7 @@ export type IProxy = ICallbacks & {
 
      proxy.close(); */
   close(): void;
+  closeAsync(): Promise<IProxy>;
 
   onCertificateRequired(
     hostname: string,

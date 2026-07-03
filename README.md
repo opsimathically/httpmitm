@@ -1,24 +1,14 @@
-# HTTPMITM
+# @opsimathically/httpmitm
 
-This project is a TypeScript MITM proxy built from a fork of `node-http-mitm-proxy`.
-It adds strict async interception for HTTP and WebSocket flows. This code is designed for my use case, and my purposes. I make no guarantee, promise, or otherwise for your use of this code.
+`@opsimathically/httpmitm` is a TypeScript HTTP, HTTPS, and WebSocket man-in-the-middle proxy for Node.js. It wraps a fork of `node-http-mitm-proxy` with awaited interception callbacks, typed callback contexts, plugin chaining, bounded body/frame buffering, callback timeouts, and deterministic package outputs for public npm usage.
 
-## Core Behavior
+Use this package only for traffic you own or are explicitly authorized to inspect. HTTPS interception creates certificate authority material on disk; protect `ssl_ca_dir` as credential material.
 
-- Interception callbacks are awaited before forwarding traffic.
-- Callback states:
-  - `PASSTHROUGH`: forward original data unchanged.
-  - `MODIFIED`: apply callback-provided headers/data, recalculate protocol metadata as needed.
-  - `TERMINATE`: abort the active connection.
-- Callback failures default to `TERMINATE` (configurable with `callback_error_policy`).
-- Optional plugin stack support with deterministic linear execution and plugin-only `CONTINUE`.
-- HTTP data callbacks automatically decode and re-encode `Content-Encoding` payloads:
-  - `gzip`, `x-gzip`
-  - `deflate`, `x-deflate`
-  - `br`
-  - `zstd`
-  - `compress`, `x-compress`
-  - Note: `zstd` support uses the local `zstd` binary on PATH.
+## Requirements
+
+- Node.js `>=20`
+- npm package outputs: CommonJS, ESM, TypeScript declarations, and source maps
+- Optional `zstd` binary on `PATH` for `content-encoding: zstd`
 
 ## Install
 
@@ -26,261 +16,257 @@ It adds strict async interception for HTTP and WebSocket flows. This code is des
 npm install @opsimathically/httpmitm
 ```
 
-## Build From Source
+ESM:
+
+```typescript
+import { HTTPMITM } from "@opsimathically/httpmitm";
+```
+
+CommonJS:
+
+```javascript
+const { HTTPMITM } = require("@opsimathically/httpmitm");
+```
+
+## Quick Start
+
+```typescript
+import { HTTPMITM } from "@opsimathically/httpmitm";
+
+const httpmitm = new HTTPMITM();
+
+const server = await httpmitm.start({
+  host: "127.0.0.1",
+  listen_port: 4444,
+  ssl_ca_dir: "/tmp/httpmitm-ca",
+  http: {
+    client_to_server: {
+      requestHeaders: async ({ context }) => {
+        console.log("request", context.request.method, context.request.url);
+        return { state: "PASSTHROUGH" };
+      },
+    },
+    server_to_client: {
+      responseData: async ({ context }) => {
+        if (context.decode_error) {
+          console.warn("response decode failed", context.decode_error);
+        }
+        return { state: "PASSTHROUGH" };
+      },
+    },
+  },
+});
+
+console.log(`proxy listening on ${server.host}:${server.listen_port}`);
+
+process.once("SIGINT", async () => {
+  await server.close();
+});
+```
+
+Configure HTTP clients to use the proxy at `127.0.0.1:4444`. For HTTPS interception, trust the generated CA certificate at `ssl_ca_dir/certs/ca.pem` in the client making requests through the proxy.
+
+## Interception Model
+
+HTTPMITM waits for each configured callback before forwarding the affected traffic. A callback may return:
+
+- `PASSTHROUGH`: forward the original request, response, or frame unchanged.
+- `MODIFIED`: apply returned headers, body data, status, or WebSocket data before forwarding.
+- `TERMINATE`: close the affected connection.
+
+If a callback returns `undefined`, it behaves like `PASSTHROUGH`. Callback errors and timeouts follow `callback_error_policy`, which defaults to `TERMINATE`.
+
+HTTP callbacks are grouped by direction:
+
+```typescript
+await httpmitm.start({
+  http: {
+    client_to_server: {
+      requestHeaders: async ({ context }) => ({ state: "PASSTHROUGH" }),
+      requestData: async ({ context }) => ({ state: "PASSTHROUGH" }),
+    },
+    server_to_client: {
+      responseHeaders: async ({ context }) => ({ state: "PASSTHROUGH" }),
+      responseData: async ({ context }) => ({ state: "PASSTHROUGH" }),
+    },
+  },
+});
+```
+
+Data callbacks receive decoded body data when decoding succeeds. The original wire bytes remain available as `raw_data`, the callback-facing data is available as `data`, and decode failures are reported through `decode_error`. When a data callback returns modified `data`, HTTPMITM re-encodes it using the active `Content-Encoding` header before forwarding.
+
+Supported HTTP content encodings:
+
+- `gzip`, `x-gzip`
+- `deflate`, `x-deflate`
+- `br`
+- `zstd`
+- `compress`, `x-compress`
+
+Unsupported or corrupt encodings are surfaced through `decode_error`; passthrough callbacks forward the original bytes.
+
+## WebSocket Interception
+
+WebSocket hooks can observe or modify the upgrade decision, client-to-server frames, server-to-client frames, and close events.
+
+```typescript
+await httpmitm.start({
+  websocket: {
+    onServerUpgrade: async ({ context }) => ({ state: "PASSTHROUGH" }),
+    onFrameSent: async ({ context }) => {
+      if (context.frame_type === "message") {
+        return { state: "MODIFIED", data: "client replacement message" };
+      }
+      return { state: "PASSTHROUGH" };
+    },
+    onFrameReceived: async ({ context }) => ({ state: "PASSTHROUGH" }),
+    onConnectionTerminated: async ({ context }) => {
+      console.log("websocket closed", context.code);
+    },
+  },
+});
+```
+
+Frame callbacks receive `message`, `ping`, and `pong` frames. Oversized frames are terminated according to `limits.websocket_frame_bytes`.
+
+## Plugins
+
+`plugins` are ordered hook containers. Plugin hooks may return the normal interception states plus plugin-only `CONTINUE`.
+
+- Plugins run in array order.
+- `CONTINUE` runs the next plugin hook.
+- `PASSTHROUGH`, `MODIFIED`, and `TERMINATE` stop the plugin chain.
+- If every plugin returns `CONTINUE` or omits the hook, the instance callback from `start()` runs.
+- Plugins must implement at least one supported HTTP or WebSocket hook.
+
+```typescript
+import { HTTPMITM, type httpmitm_plugin_i } from "@opsimathically/httpmitm";
+
+class AuditPlugin implements httpmitm_plugin_i {
+  plugin_name = "audit";
+
+  http = {
+    client_to_server: {
+      requestHeaders: async ({ context }) => {
+        console.log(context.connection_id, context.request.url);
+        return { state: "CONTINUE" };
+      },
+    },
+  };
+}
+
+const httpmitm = new HTTPMITM();
+await httpmitm.start({
+  plugins: [new AuditPlugin()],
+});
+```
+
+## HTTPS And Certificates
+
+HTTPS CONNECT traffic is intercepted by generating a CA certificate and per-host leaf certificates under `ssl_ca_dir`.
+
+- Set a stable `ssl_ca_dir` if clients need to trust the same CA across restarts.
+- Trust `ssl_ca_dir/certs/ca.pem` only in the test client or controlled environment using the proxy.
+- Do not commit, publish, or casually share generated CA private keys.
+
+If upstream HTTPS services use private or self-signed certificates, pass an explicit upstream HTTPS agent:
+
+```typescript
+import https from "node:https";
+import { HTTPMITM } from "@opsimathically/httpmitm";
+
+const httpmitm = new HTTPMITM();
+
+await httpmitm.start({
+  host: "127.0.0.1",
+  listen_port: 4444,
+  ssl_ca_dir: "/tmp/httpmitm-ca",
+  https_agent: new https.Agent({
+    rejectUnauthorized: false,
+  }),
+});
+```
+
+## Limits, Timeouts, And Logging
+
+HTTPMITM buffers full request bodies, response bodies, and WebSocket frames when matching data callbacks are active. Defaults are intentionally bounded:
+
+| Option | Default | Behavior |
+| --- | ---: | --- |
+| `limits.request_body_bytes` | `10 MiB` | Maximum buffered HTTP request body |
+| `limits.response_body_bytes` | `25 MiB` | Maximum buffered HTTP response body |
+| `limits.websocket_frame_bytes` | `16 MiB` | Maximum WebSocket frame payload |
+| `limits.callback_timeout_ms` | `30_000` | Maximum callback execution time |
+| `limits.binary_transform_timeout_ms` | `5_000` | Maximum external transform time, including zstd |
+
+Invalid or non-positive limit values fall back to defaults. Limit violations terminate the affected connection and emit a structured `logger.warn` diagnostic when a logger is configured. The default logger is silent.
+
+```typescript
+await httpmitm.start({
+  callback_error_policy: "TERMINATE",
+  limits: {
+    request_body_bytes: 5 * 1024 * 1024,
+    response_body_bytes: 10 * 1024 * 1024,
+    websocket_frame_bytes: 4 * 1024 * 1024,
+    callback_timeout_ms: 10_000,
+    binary_transform_timeout_ms: 2_500,
+  },
+  logger: {
+    warn: (message, metadata) => console.warn(message, metadata),
+    error: (message, metadata) => console.error(message, metadata),
+  },
+});
+```
+
+## zstd Support
+
+`content-encoding: zstd` support shells out to the local `zstd` binary. If `zstd` is missing, times out, exits with an error, or produces too much output, callbacks receive the original bytes and a `decode_error` or encode failure path. Install `zstd` on hosts that need to inspect or modify zstd-compressed payloads.
+
+## Lifecycle
+
+`start()` returns an object with:
+
+- `proxy`: the low-level forked proxy instance.
+- `host`: the configured host, defaulting to `localhost`.
+- `listen_port`: the actual HTTP proxy port.
+- `close()`: an async shutdown method.
+
+`HTTPMITM.stop()` and the returned `close()` method await shutdown of the HTTP, HTTPS, WebSocket, and generated SSL servers where possible. Await shutdown before reusing a port or exiting a test.
+
+## API Reference And Guides
+
+Full documentation is generated into [`docs/README.md`](docs/README.md). It includes guide pages and TypeDoc API reference for the public classes, callbacks, result types, plugin interfaces, logger, and limit options.
+
+## Build And Verify
 
 ```bash
 npm install
 npm run build
-```
-
-## Usage
-
-```typescript
-import { HTTPMITM } from './classes/httpmitm/HTTPMITM.class';
-
-(async function () {
-  const httpmitm = new HTTPMITM();
-
-  await httpmitm.start({
-    host: '0.0.0.0',
-    listen_port: 4444,
-    callback_error_policy: 'TERMINATE',
-    http: {
-      client_to_server: {
-        requestHeaders: async ({ context }) => {
-          return {
-            state: 'MODIFIED',
-            headers: [{ name: 'x-request-header', value: 'modified' }]
-          };
-        },
-        requestData: async ({ context }) => {
-          return {
-            state: 'MODIFIED',
-            headers: [{ name: 'x-request-body-modified', value: 'true' }],
-            data: 'modified request body'
-          };
-        }
-      },
-      server_to_client: {
-        responseHeaders: async ({ context }) => {
-          return {
-            state: 'MODIFIED',
-            headers: [{ name: 'x-response-header', value: 'modified' }]
-          };
-        },
-        responseData: async ({ context }) => {
-          return {
-            state: 'MODIFIED',
-            data: 'modified response body'
-          };
-        }
-      }
-    },
-    websocket: {
-      onServerUpgrade: async ({ context }) => {
-        return {
-          state: 'PASSTHROUGH'
-        };
-      },
-      onFrameSent: async ({ context }) => {
-        return {
-          state: 'MODIFIED',
-          data: 'client-to-server modified frame'
-        };
-      },
-      onFrameReceived: async ({ context }) => {
-        return {
-          state: 'MODIFIED',
-          data: 'server-to-client modified frame'
-        };
-      },
-      onConnectionTerminated: async ({ context }) => {
-        // optional cleanup/logging
-      }
-    }
-  });
-})();
-```
-
-## Plugin Architecture
-
-`HTTPMITM.start(...)` accepts `plugins`, an array of plugin class instances.
-
-- Execution order per hook:
-  1. plugin 1 hook
-  2. plugin 2 hook
-  3. plugin N hook
-  4. instance callback from `start` params (only if chain continues)
-- Plugin hook states:
-  - `CONTINUE`: run the next plugin hook
-  - `PASSTHROUGH`: stop chain and use passthrough result
-  - `MODIFIED`: stop chain and use modified result
-  - `TERMINATE`: stop chain and terminate the connection
-- If all plugins skip/miss the hook or return `CONTINUE`, the instance callback is executed (if defined).
-- Plugin callback throw/reject follows `callback_error_policy`:
-  - `TERMINATE` policy => terminate
-  - `PASSTHROUGH` policy => passthrough
-- Plugins must implement at least one supported hook, or `start` throws.
-
-### Plugin Example
-
-```typescript
-import { HTTPMITM, type httpmitm_plugin_i } from '@opsimathically/httpmitm';
-
-class AddHeaderPlugin implements httpmitm_plugin_i {
-  plugin_name = 'add_header';
-  http = {
-    client_to_server: {
-      requestHeaders: async () => ({
-        state: 'MODIFIED',
-        headers: [{ name: 'x-plugin', value: 'applied' }]
-      })
-    }
-  };
-}
-
-class AuditPlugin implements httpmitm_plugin_i {
-  plugin_name = 'audit';
-  http = {
-    client_to_server: {
-      requestHeaders: async ({ context }) => {
-        console.log('request', context.connection_id, context.request.url);
-        return { state: 'CONTINUE' };
-      }
-    }
-  };
-}
-
-(async function () {
-  const httpmitm = new HTTPMITM();
-  await httpmitm.start({
-    host: '0.0.0.0',
-    listen_port: 4444,
-    callback_error_policy: 'TERMINATE',
-    plugins: [new AuditPlugin(), new AddHeaderPlugin()],
-    http: {
-      client_to_server: {
-        requestHeaders: async () => {
-          // Runs only if every plugin returns CONTINUE.
-          return { state: 'PASSTHROUGH' };
-        }
-      }
-    }
-  });
-})();
-```
-
-## Callback Context
-
-Each callback receives a `context` object. The fields below are always present.
-
-### Shared Context Fields (HTTP + WebSocket)
-
-- `connection_id`: stable identifier for the intercepted connection.
-- `connection_started_at_ms`: unix timestamp (ms) when tracking started.
-- `intercepted_at_ms`: unix timestamp (ms) when this callback fired.
-- `protocol`: `"http"` or `"websocket"`.
-- `is_ssl`: `true` for TLS traffic.
-- `direction`: callback direction (`"client_to_server"` or `"server_to_client"`).
-- `event`: callback event name (for example `request_data`, `response_data`, `frame`).
-- `remote_ip`: remote endpoint IP if known, else `null`.
-- `remote_port`: remote endpoint port if known, else `null`.
-- `remote_host`: remote target host if known, else `null`.
-- `client_ip`: client endpoint IP if known, else `null`.
-- `client_port`: client endpoint port if known, else `null`.
-- `client_host`: client host if known, else `null`.
-- `handles`: low-level request/response/socket handles.
-
-If any connection detail cannot be resolved, it is set to `null`.
-
-### HTTP Callback-Specific Context Fields
-
-#### `requestHeaders`
-
-- `request`: request metadata (`method`, `url`, `http_version`, `headers`).
-
-#### `requestData`
-
-- `request`: request metadata.
-- `content_encoding`: raw `Content-Encoding` header value or `null`.
-- `content_encodings`: parsed encodings array (for example `["gzip"]`, `["br"]`).
-- `raw_data`: body bytes exactly as seen on the wire.
-- `decoded_data`: decoded body bytes (if decoding succeeded) or raw fallback.
-- `data_is_decoded`: `true` if decode succeeded (or no encoding), else `false`.
-- `decode_error`: decode failure message or `null`.
-- `data`: alias of `decoded_data` for convenience.
-
-`data` is the decoded form. If you return modified `data`, HTTPMITM re-encodes using the current `Content-Encoding` header before forwarding.
-
-#### `responseHeaders`
-
-- `request`: request metadata.
-- `response`: response metadata (`status_code`, `status_message`, `http_version`, `headers`).
-
-#### `responseData`
-
-- `request`: request metadata.
-- `response`: response metadata.
-- `content_encoding`: raw `Content-Encoding` header value or `null`.
-- `content_encodings`: parsed encodings array.
-- `raw_data`: body bytes exactly as seen on the wire.
-- `decoded_data`: decoded body bytes (if decoding succeeded) or raw fallback.
-- `data_is_decoded`: `true` if decode succeeded (or no encoding), else `false`.
-- `decode_error`: decode failure message or `null`.
-- `data`: alias of `decoded_data` for convenience.
-
-`data` is the decoded form. If you return modified `data`, HTTPMITM re-encodes using the current `Content-Encoding` header before forwarding.
-
-### WebSocket Callback-Specific Context Fields
-
-#### `onServerUpgrade`
-
-- `upgrade_request`: upgrade request metadata (`url`, `method`, `http_version`, `headers`).
-
-#### `onFrameSent` / `onFrameReceived`
-
-- `frame_type`: `"message" | "ping" | "pong"`.
-- `data`: frame payload.
-- `flags`: frame flags (if provided by the ws layer).
-
-#### `onConnectionTerminated`
-
-- `closed_by_server`: `true` if upstream initiated close.
-- `code`: close code.
-- `message`: close message.
-
-### Handles Reference
-
-HTTP callback `context.handles` includes:
-
-- `raw_context`
-- `connect_request`
-- `client_to_proxy_request`
-- `proxy_to_client_response`
-- `proxy_to_server_request`
-- `server_to_proxy_response`
-
-WebSocket callback `context.handles` includes:
-
-- `raw_context`
-- `connect_request`
-- `client_to_proxy_websocket`
-- `proxy_to_server_websocket`
-
-### Example: Using Remote and Client Fields
-
-```typescript
-responseData: async ({ context }) => {
-  if (context.remote_host === 'api.example.com' && context.client_ip) {
-    console.log('client', context.client_ip, '->', context.remote_host);
-  }
-
-  return { state: 'PASSTHROUGH' };
-};
-```
-
-## Test
-
-```bash
 npm test
+npm run verify
 ```
+
+`npm run verify` runs build, typecheck, lint, docs generation, tests, production audit, npm pack dry-run, and package install smoke tests. Release verification is local-script based; this project intentionally does not use GitHub workflow files.
+
+## Package Contents
+
+The npm package is controlled by the `files` allowlist and includes:
+
+- `dist/index.js`
+- `dist/index.mjs`
+- `dist/index.d.ts`
+- `dist/index.d.mts`
+- source maps
+- `README.md`
+- `LICENSE.txt`
+
+Generated `docs/` output is kept in the repository for readers but is not included in the npm tarball.
+
+## Troubleshooting
+
+- Callback times out: reduce callback work, increase `limits.callback_timeout_ms`, or configure `callback_error_policy: "PASSTHROUGH"` only when fail-open behavior is acceptable.
+- Body or frame is terminated: raise the matching limit after confirming memory capacity and expected payload sizes.
+- HTTPS client rejects certificates: trust `ssl_ca_dir/certs/ca.pem` in the client using the proxy.
+- Upstream self-signed TLS fails: pass `https_agent` with the upstream trust policy you need.
+- zstd payloads are not decoded: install the `zstd` binary and ensure it is on `PATH`.
+- Corrupt or unsupported `Content-Encoding`: inspect `context.decode_error`; passthrough forwards original bytes.
