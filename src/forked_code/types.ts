@@ -34,6 +34,26 @@ export interface IProxyOptions {
   httpsPort?: number;
   /** - Setting this option will remove the content-length from the proxy to server request, forcing chunked encoding */
   forceChunkedRequest?: boolean;
+  /** - Certificate storage and cache behavior. */
+  certificates?: IProxyCertificateOptions;
+}
+
+export type IProxyCertificateStorage = "disk" | "memory";
+export type IProxyLeafCertificateWildcard = "registrable_domain" | "exact_host";
+
+export interface IProxyCertificateOptions {
+  rootCA?: {
+    storage?: IProxyCertificateStorage;
+    sslCaDir?: string;
+  };
+  leafCertificates?: {
+    storage?: IProxyCertificateStorage;
+    wildcard?: IProxyLeafCertificateWildcard;
+    cache?: {
+      maxEntries?: number;
+      ttlMs?: number;
+    };
+  };
 }
 
 export interface IProxySSLServer {
@@ -89,8 +109,11 @@ export type OnWebSocketCloseParams = (
 ) => void;
 
 export interface ICertDetails {
-  keyFile: string;
-  certFile: string;
+  keyFile?: string;
+  certFile?: string;
+  keyFileData?: string | Buffer;
+  certFileData?: string | Buffer;
+  cacheKey?: string;
   hosts?: string[];
 }
 
@@ -160,6 +183,7 @@ export type IProxy = ICallbacks & {
   forceSNI: boolean;
   httpsPort?: number;
   sslCaDir: string;
+  certificateOptions: Required<IProxyCertificateOptions>;
   ca: CA;
 };
 

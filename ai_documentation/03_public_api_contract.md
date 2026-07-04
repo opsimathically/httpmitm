@@ -23,6 +23,14 @@
 - `limits.callback_timeout_ms`: maximum callback execution time. Default: `30_000`.
 - `limits.binary_transform_timeout_ms`: maximum external binary transform time. Default: `5_000`.
 - `logger`: optional structured logger with `debug`, `info`, `warn`, and `error` methods.
+- `certificates.root_ca.storage`: root CA storage backend, `disk` or `memory`. Default: `disk`.
+- `certificates.root_ca.ssl_ca_dir`: disk directory for persisted root CA material. Defaults to `ssl_ca_dir` or `.http-mitm-proxy`.
+- `certificates.leaf_certificates.storage`: leaf certificate storage backend, `disk` or `memory`. Default: `disk`.
+- `certificates.leaf_certificates.wildcard`: `registrable_domain` or `exact_host`. When `certificates` is omitted entirely, legacy exact-host disk behavior is preserved.
+- `certificates.leaf_certificates.cache.max_entries`: in-memory leaf cache max. Default: `1000`.
+- `certificates.leaf_certificates.cache.ttl_ms`: in-memory leaf cache TTL. Default: `3_600_000`.
+
+`HTTPMITM.start(params)` returns `ca.cert_pem`, `ca.storage`, and `ca.cert_path` when root CA storage is disk-backed.
 
 ## Runtime Behavior
 
@@ -33,3 +41,4 @@
 - Limit violations terminate the affected connection and emit a warning diagnostic when a logger is configured.
 - zstd support requires a `zstd` binary on `PATH`; missing or timed-out transforms surface as decode/encode errors.
 - `stop()` and the returned server `close()` method await server shutdown.
+- Fully memory-backed certificate mode does not write root CA or leaf certificate material to disk; callers trust the returned `server.ca.cert_pem`.

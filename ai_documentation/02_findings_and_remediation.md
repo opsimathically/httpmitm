@@ -42,6 +42,10 @@
   - Fix: use async child processes with timeout and bounded output.
   - Verification: zstd decode/re-encode and missing-binary tests pass.
 
+- Finding: HTTPS interception wrote all root and leaf certificate material to disk.
+  - Fix: add configurable disk or memory root CA and leaf certificate storage with in-memory LRU/TTL leaf caching and registrable-domain wildcard reuse.
+  - Verification: disk compatibility, memory root, memory leaf, wildcard reuse, exact fallback, TTL/LRU, and concurrent generation tests pass.
+
 ## Security
 
 - Finding: production audit reported vulnerable direct dependencies.

@@ -8,7 +8,7 @@
 
 > **httpmitm\_logger\_t** = `object`
 
-Defined in: [classes/httpmitm/httpmitm.types.ts:61](https://github.com/opsimathically/httpmitm/blob/4aebb5332c43f07134a000a763217bcbef810564/src/classes/httpmitm/httpmitm.types.ts#L61)
+Defined in: [classes/httpmitm/httpmitm.types.ts:61](https://github.com/opsimathically/httpmitm/blob/e7c5b973f6579a3a4516f03611e4775f936ef4df/src/classes/httpmitm/httpmitm.types.ts#L61)
 
 Optional structured logger. The default logger is silent.
 
@@ -21,7 +21,7 @@ callback timeouts, and binary transform failures.
 
 > `optional` **debug**: (`message`, `metadata?`) => `void`
 
-Defined in: [classes/httpmitm/httpmitm.types.ts:62](https://github.com/opsimathically/httpmitm/blob/4aebb5332c43f07134a000a763217bcbef810564/src/classes/httpmitm/httpmitm.types.ts#L62)
+Defined in: [classes/httpmitm/httpmitm.types.ts:62](https://github.com/opsimathically/httpmitm/blob/e7c5b973f6579a3a4516f03611e4775f936ef4df/src/classes/httpmitm/httpmitm.types.ts#L62)
 
 #### Parameters
 
@@ -43,7 +43,7 @@ Defined in: [classes/httpmitm/httpmitm.types.ts:62](https://github.com/opsimathi
 
 > `optional` **error**: (`message`, `metadata?`) => `void`
 
-Defined in: [classes/httpmitm/httpmitm.types.ts:65](https://github.com/opsimathically/httpmitm/blob/4aebb5332c43f07134a000a763217bcbef810564/src/classes/httpmitm/httpmitm.types.ts#L65)
+Defined in: [classes/httpmitm/httpmitm.types.ts:65](https://github.com/opsimathically/httpmitm/blob/e7c5b973f6579a3a4516f03611e4775f936ef4df/src/classes/httpmitm/httpmitm.types.ts#L65)
 
 #### Parameters
 
@@ -65,7 +65,7 @@ Defined in: [classes/httpmitm/httpmitm.types.ts:65](https://github.com/opsimathi
 
 > `optional` **info**: (`message`, `metadata?`) => `void`
 
-Defined in: [classes/httpmitm/httpmitm.types.ts:63](https://github.com/opsimathically/httpmitm/blob/4aebb5332c43f07134a000a763217bcbef810564/src/classes/httpmitm/httpmitm.types.ts#L63)
+Defined in: [classes/httpmitm/httpmitm.types.ts:63](https://github.com/opsimathically/httpmitm/blob/e7c5b973f6579a3a4516f03611e4775f936ef4df/src/classes/httpmitm/httpmitm.types.ts#L63)
 
 #### Parameters
 
@@ -87,7 +87,7 @@ Defined in: [classes/httpmitm/httpmitm.types.ts:63](https://github.com/opsimathi
 
 > `optional` **warn**: (`message`, `metadata?`) => `void`
 
-Defined in: [classes/httpmitm/httpmitm.types.ts:64](https://github.com/opsimathically/httpmitm/blob/4aebb5332c43f07134a000a763217bcbef810564/src/classes/httpmitm/httpmitm.types.ts#L64)
+Defined in: [classes/httpmitm/httpmitm.types.ts:64](https://github.com/opsimathically/httpmitm/blob/e7c5b973f6579a3a4516f03611e4775f936ef4df/src/classes/httpmitm/httpmitm.types.ts#L64)
 
 #### Parameters
 

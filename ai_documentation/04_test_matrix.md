@@ -10,6 +10,8 @@
 ## Required Additions
 
 - Complete: HTTPS CONNECT/TLS interception with generated CA certificate trust.
+- Complete: disk and memory root/leaf certificate storage modes.
+- Complete: registrable-domain wildcard reuse, exact-host fallback, leaf cache TTL/LRU, and concurrent generation locking.
 - Complete: keep-alive repeated requests through one proxy instance.
 - Complete: concurrent delayed callbacks without cross-request leakage.
 - Complete: request and response body limit enforcement.
@@ -24,4 +26,4 @@
 
 `npm run verify` must run the automated test suite and package smoke tests.
 
-Current automated suite contains 27 e2e tests.
+Current automated suite contains 33 e2e tests.

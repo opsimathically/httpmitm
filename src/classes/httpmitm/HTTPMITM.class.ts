@@ -20,6 +20,7 @@ import type {
   http_interception_result_t,
   httpmitm_limits_t,
   httpmitm_logger_t,
+  httpmitm_certificate_options_t,
   plugin_http_interception_result_t,
   plugin_websocket_interception_result_t,
   http_request_data_callback_context_t,
@@ -44,6 +45,11 @@ const DEFAULT_LIMITS: Required<httpmitm_limits_t> = {
   websocket_frame_bytes: 16 * 1024 * 1024,
   callback_timeout_ms: 30_000,
   binary_transform_timeout_ms: 5_000,
+};
+
+const DEFAULT_CERTIFICATE_CACHE = {
+  max_entries: 1000,
+  ttl_ms: 3_600_000,
 };
 
 type http_connection_state_t = {
@@ -177,6 +183,45 @@ function NormalizeLogger(params: {
     info: params.logger?.info || SILENT_LOGGER.info,
     warn: params.logger?.warn || SILENT_LOGGER.warn,
     error: params.logger?.error || SILENT_LOGGER.error,
+  };
+}
+
+function NormalizeCertificateOptions(params: {
+  ssl_ca_dir: string | undefined;
+  certificates: httpmitm_certificate_options_t | undefined;
+}):
+  | {
+      rootCA?: { storage?: "disk" | "memory"; sslCaDir?: string };
+      leafCertificates?: {
+        storage?: "disk" | "memory";
+        wildcard?: "registrable_domain" | "exact_host";
+        cache?: { maxEntries?: number; ttlMs?: number };
+      };
+    }
+  | undefined {
+  if (!params.certificates) {
+    return undefined;
+  }
+
+  return {
+    rootCA: {
+      storage: params.certificates.root_ca?.storage,
+      sslCaDir: params.certificates.root_ca?.ssl_ca_dir || params.ssl_ca_dir,
+    },
+    leafCertificates: {
+      storage: params.certificates.leaf_certificates?.storage,
+      wildcard: params.certificates.leaf_certificates?.wildcard,
+      cache: {
+        maxEntries: NormalizePositiveNumber({
+          value: params.certificates.leaf_certificates?.cache?.max_entries,
+          default_value: DEFAULT_CERTIFICATE_CACHE.max_entries,
+        }),
+        ttlMs: NormalizePositiveNumber({
+          value: params.certificates.leaf_certificates?.cache?.ttl_ms,
+          default_value: DEFAULT_CERTIFICATE_CACHE.ttl_ms,
+        }),
+      },
+    },
   };
 }
 
@@ -1082,6 +1127,10 @@ export class HTTPMITM {
     this.plugin_instances = this.validateAndNormalizePlugins({
       plugins: params.plugins,
     });
+    const certificate_options = NormalizeCertificateOptions({
+      ssl_ca_dir: params.ssl_ca_dir,
+      certificates: params.certificates,
+    });
 
     const proxy_instance = new Proxy();
     this.registerHttpCallbacks({ proxy_instance, start_params: params });
@@ -1100,6 +1149,7 @@ export class HTTPMITM {
           httpAgent: params.http_agent,
           httpsAgent: params.https_agent,
           forceChunkedRequest: params.force_chunked_request,
+          certificates: certificate_options,
         },
         (error) => {
           if (error) {
@@ -1117,6 +1167,11 @@ export class HTTPMITM {
       proxy: proxy_instance,
       host: params.host || "localhost",
       listen_port: proxy_instance.httpPort,
+      ca: {
+        cert_pem: proxy_instance.ca.getPem(),
+        storage: proxy_instance.ca.getStorage() as "disk" | "memory",
+        cert_path: proxy_instance.ca.getCACertPath(),
+      },
       close: async () => {
         await this.stop();
       },

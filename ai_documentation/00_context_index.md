@@ -8,7 +8,7 @@ Prepare `@opsimathically/httpmitm` for a public npm production release on Node.j
 
 - Release blockers addressed: build, declarations, package metadata, local gates, package smoke test.
 - Runtime hardening added: limits, callback timeout, logger, async zstd transform, awaited shutdown.
-- Test suite expanded from 18 to 27 e2e tests.
+- Test suite expanded from 18 to 33 e2e tests.
 - Production audit passes with zero known production vulnerabilities.
 
 ## Documentation Map

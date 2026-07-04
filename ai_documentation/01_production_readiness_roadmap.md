@@ -15,6 +15,7 @@
 - Complete: timeout and limit termination diagnostics.
 - Complete: zstd uses async bounded child processes.
 - Complete: `HTTPMITM.stop()` awaits underlying server shutdown.
+- Complete: configurable disk or memory certificate storage with bounded in-memory leaf cache.
 
 ## Phase 3: Security And Dependency Cleanup
 
@@ -25,7 +26,7 @@
 ## Phase 4: Test And Documentation Coverage
 
 - Complete: existing e2e behavior preserved.
-- Complete: tests added for HTTPS CONNECT/TLS, keep-alive, concurrency, limits, callback timeout, unsupported/corrupt encodings, WebSocket limit/timeout, zstd missing binary, shutdown port reuse, and package smoke install.
+- Complete: tests added for HTTPS CONNECT/TLS, certificate storage modes/cache behavior, keep-alive, concurrency, limits, callback timeout, unsupported/corrupt encodings, WebSocket limit/timeout, zstd missing binary, shutdown port reuse, and package smoke install.
 - Complete: README and documentation set updated.
 
 ## Acceptance Gate

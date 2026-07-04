@@ -1,11 +1,17 @@
 // @ts-nocheck
 import FS from "fs";
 import path from "path";
+import { isIP } from "net";
 import Forge from "node-forge";
 const { pki, md } = Forge;
 import async from "async";
+import { parse as parseDomain } from "tldts";
 
 type ErrnoException = NodeJS.ErrnoException;
+
+const DEFAULT_SSL_CA_DIR = path.resolve(process.cwd(), ".http-mitm-proxy");
+const DEFAULT_LEAF_CACHE_MAX_ENTRIES = 1000;
+const DEFAULT_LEAF_CACHE_TTL_MS = 3_600_000;
 
 const CAattrs = [
   {
@@ -135,18 +141,70 @@ export class CA {
   keysFolder!: string;
   CAcert!: ReturnType<typeof Forge.pki.createCertificate>;
   CAkeys!: ReturnType<typeof Forge.pki.rsa.generateKeyPair>;
+  rootStorage = "disk";
+  leafStorage = "disk";
+  leafWildcard = "registrable_domain";
+  leafCacheMaxEntries = DEFAULT_LEAF_CACHE_MAX_ENTRIES;
+  leafCacheTtlMs = DEFAULT_LEAF_CACHE_TTL_MS;
+  leafCache = new Map();
 
-  static create(caFolder, callback) {
+  static normalizeCreateOptions(optionsOrFolder) {
+    if (typeof optionsOrFolder === "string") {
+      return {
+        sslCaDir: optionsOrFolder,
+        certificates: {},
+      };
+    }
+
+    return {
+      sslCaDir: optionsOrFolder?.sslCaDir || DEFAULT_SSL_CA_DIR,
+      certificates: optionsOrFolder?.certificates || {},
+    };
+  }
+
+  static normalizePositiveNumber(value, fallback) {
+    return typeof value === "number" && Number.isFinite(value) && value > 0
+      ? value
+      : fallback;
+  }
+
+  static create(optionsOrFolder, callback) {
+    const createOptions = CA.normalizeCreateOptions(optionsOrFolder);
+    const rootOptions = createOptions.certificates.rootCA || {};
+    const leafOptions = createOptions.certificates.leafCertificates || {};
+    const leafCacheOptions = leafOptions.cache || {};
     const ca = new CA();
-    ca.baseCAFolder = caFolder;
+    ca.rootStorage = rootOptions.storage || "disk";
+    ca.leafStorage = leafOptions.storage || "disk";
+    ca.leafWildcard = leafOptions.wildcard || "registrable_domain";
+    ca.leafCacheMaxEntries = CA.normalizePositiveNumber(
+      leafCacheOptions.maxEntries,
+      DEFAULT_LEAF_CACHE_MAX_ENTRIES
+    );
+    ca.leafCacheTtlMs = CA.normalizePositiveNumber(
+      leafCacheOptions.ttlMs,
+      DEFAULT_LEAF_CACHE_TTL_MS
+    );
+    ca.baseCAFolder = rootOptions.sslCaDir || createOptions.sslCaDir;
     ca.certsFolder = path.join(ca.baseCAFolder, "certs");
     ca.keysFolder = path.join(ca.baseCAFolder, "keys");
-    FS.mkdirSync(ca.baseCAFolder, { recursive: true });
-    FS.mkdirSync(ca.certsFolder, { recursive: true });
-    FS.mkdirSync(ca.keysFolder, { recursive: true });
+    if (ca.rootStorage === "memory" && ca.leafStorage === "disk") {
+      FS.mkdirSync(ca.baseCAFolder, { recursive: true });
+      FS.mkdirSync(ca.certsFolder, { recursive: true });
+      FS.mkdirSync(ca.keysFolder, { recursive: true });
+    }
+    if (ca.rootStorage === "disk") {
+      FS.mkdirSync(ca.baseCAFolder, { recursive: true });
+      FS.mkdirSync(ca.certsFolder, { recursive: true });
+      FS.mkdirSync(ca.keysFolder, { recursive: true });
+    }
     async.series(
       [
         (callback) => {
+          if (ca.rootStorage === "memory") {
+            ca.generateCA(callback);
+            return;
+          }
           const exists = FS.existsSync(path.join(ca.certsFolder, "ca.pem"));
           if (exists) {
             ca.loadCA(callback);
@@ -179,6 +237,10 @@ export class CA {
     return pki.certificateToPem(this.CAcert);
   }
 
+  getStorage() {
+    return this.rootStorage;
+  }
+
   generateCA(
     callback: (
       err?: ErrnoException | null | undefined,
@@ -205,6 +267,10 @@ export class CA {
       cert.sign(keys.privateKey, md.sha256.create());
       self.CAcert = cert;
       self.CAkeys = keys;
+      if (self.rootStorage === "memory") {
+        callback(null, []);
+        return;
+      }
       const tasks = [
         FS.writeFile.bind(
           null,
@@ -309,48 +375,173 @@ export class CA {
     const certPem = pki.certificateToPem(certServer);
     const keyPrivatePem = pki.privateKeyToPem(keysServer.privateKey);
     const keyPublicPem = pki.publicKeyToPem(keysServer.publicKey);
-    FS.writeFile(
-      `${this.certsFolder}/${mainHost.replace(/\*/g, "_")}.pem`,
-      certPem,
-      (error) => {
-        if (error) {
-          console.error(
-            `Failed to save certificate to disk in ${self.certsFolder}`,
-            error
-          );
+    if (this.leafStorage === "disk") {
+      FS.writeFile(
+        `${this.certsFolder}/${mainHost.replace(/\*/g, "_")}.pem`,
+        certPem,
+        (error) => {
+          if (error) {
+            console.error(
+              `Failed to save certificate to disk in ${self.certsFolder}`,
+              error
+            );
+          }
         }
-      }
-    );
-    FS.writeFile(
-      `${this.keysFolder}/${mainHost.replace(/\*/g, "_")}.key`,
-      keyPrivatePem,
-      (error) => {
-        if (error) {
-          console.error(
-            `Failed to save private key to disk in ${self.keysFolder}`,
-            error
-          );
+      );
+      FS.writeFile(
+        `${this.keysFolder}/${mainHost.replace(/\*/g, "_")}.key`,
+        keyPrivatePem,
+        (error) => {
+          if (error) {
+            console.error(
+              `Failed to save private key to disk in ${self.keysFolder}`,
+              error
+            );
+          }
         }
-      }
-    );
-    FS.writeFile(
-      `${this.keysFolder}/${mainHost.replace(/\*/g, "_")}.public.key`,
-      keyPublicPem,
-      (error) => {
-        if (error) {
-          console.error(
-            `Failed to save public key to disk in ${self.keysFolder}`,
-            error
-          );
+      );
+      FS.writeFile(
+        `${this.keysFolder}/${mainHost.replace(/\*/g, "_")}.public.key`,
+        keyPublicPem,
+        (error) => {
+          if (error) {
+            console.error(
+              `Failed to save public key to disk in ${self.keysFolder}`,
+              error
+            );
+          }
         }
-      }
-    );
+      );
+    } else {
+      this.storeLeafCertificate({
+        cacheKey: this.getLeafCertificateIdentity(mainHost).cacheKey,
+        certPem,
+        keyPem: keyPrivatePem,
+        hosts,
+      });
+    }
     // returns synchronously even before files get written to disk
     cb(certPem, keyPrivatePem);
   }
 
   getCACertPath() {
+    if (this.rootStorage === "memory") {
+      return undefined;
+    }
     return `${this.certsFolder}/ca.pem`;
+  }
+
+  getLeafCertificateDetails(hostname) {
+    const identity = this.getLeafCertificateIdentity(hostname);
+    if (this.leafStorage === "memory") {
+      const cached = this.getCachedLeafCertificate(identity.cacheKey);
+      if (cached) {
+        return {
+          keyFileData: cached.keyPem,
+          certFileData: cached.certPem,
+          cacheKey: identity.cacheKey,
+          hosts: cached.hosts,
+        };
+      }
+      return {
+        cacheKey: identity.cacheKey,
+        hosts: identity.hosts,
+      };
+    }
+
+    const fileName = identity.fileName;
+    return {
+      keyFile: `${this.keysFolder}/${fileName}.key`,
+      certFile: `${this.certsFolder}/${fileName}.pem`,
+      cacheKey: identity.cacheKey,
+      hosts: identity.hosts,
+    };
+  }
+
+  getLeafCertificateIdentity(hostname) {
+    const normalizedHostname = String(hostname || "").toLowerCase();
+    if (
+      this.leafWildcard === "exact_host" ||
+      normalizedHostname === "localhost" ||
+      !normalizedHostname.includes(".") ||
+      isIP(normalizedHostname)
+    ) {
+      return this.getExactLeafCertificateIdentity(normalizedHostname);
+    }
+
+    const parsed = parseDomain(normalizedHostname, {
+      allowPrivateDomains: true,
+    });
+    const domain = parsed?.domain;
+    const subdomain = parsed?.subdomain;
+    const wildcardIsValidForHost =
+      domain &&
+      (normalizedHostname === domain ||
+        (typeof subdomain === "string" &&
+          subdomain.length > 0 &&
+          !subdomain.includes(".")));
+
+    if (!wildcardIsValidForHost) {
+      return this.getExactLeafCertificateIdentity(normalizedHostname);
+    }
+
+    return {
+      cacheKey: `wildcard:${domain}`,
+      fileName: `_.${domain}`,
+      hosts: [domain, `*.${domain}`],
+    };
+  }
+
+  getExactLeafCertificateIdentity(hostname) {
+    return {
+      cacheKey: `host:${hostname}`,
+      fileName: hostname.replace(/\*/g, "_"),
+      hosts: [hostname],
+    };
+  }
+
+  getCachedLeafCertificate(cacheKey) {
+    const cached = this.leafCache.get(cacheKey);
+    if (!cached) {
+      return undefined;
+    }
+
+    const now = Date.now();
+    if (cached.expiresAtMs <= now) {
+      this.leafCache.delete(cacheKey);
+      return undefined;
+    }
+
+    cached.lastUsedAtMs = now;
+    this.leafCache.delete(cacheKey);
+    this.leafCache.set(cacheKey, cached);
+    return cached;
+  }
+
+  storeLeafCertificate(params) {
+    const now = Date.now();
+    this.leafCache.set(params.cacheKey, {
+      certPem: params.certPem,
+      keyPem: params.keyPem,
+      hosts: params.hosts,
+      expiresAtMs: now + this.leafCacheTtlMs,
+      lastUsedAtMs: now,
+    });
+
+    while (this.leafCache.size > this.leafCacheMaxEntries) {
+      let oldestKey;
+      let oldestLastUsed = Number.POSITIVE_INFINITY;
+      for (const [cacheKey, entry] of this.leafCache.entries()) {
+        if (entry.lastUsedAtMs < oldestLastUsed) {
+          oldestKey = cacheKey;
+          oldestLastUsed = entry.lastUsedAtMs;
+        }
+      }
+      if (!oldestKey) {
+        break;
+      }
+      this.leafCache.delete(oldestKey);
+    }
   }
 }
 

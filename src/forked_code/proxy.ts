@@ -60,6 +60,44 @@ interface WebSocketFlags {
   fin?: boolean | undefined;
 }
 
+const DEFAULT_SSL_CA_DIR = path.resolve(process.cwd(), ".http-mitm-proxy");
+const DEFAULT_LEAF_CACHE_MAX_ENTRIES = 1000;
+const DEFAULT_LEAF_CACHE_TTL_MS = 3_600_000;
+
+function normalizePositiveNumber(value: unknown, fallback: number): number {
+  return typeof value === "number" && Number.isFinite(value) && value > 0
+    ? value
+    : fallback;
+}
+
+function normalizeCertificateOptions(options: IProxyOptions) {
+  const hasCertificateOptions = typeof options.certificates !== "undefined";
+  const rootCA = options.certificates?.rootCA || {};
+  const leafCertificates = options.certificates?.leafCertificates || {};
+  const cache = leafCertificates.cache || {};
+  const sslCaDir = rootCA.sslCaDir || options.sslCaDir || DEFAULT_SSL_CA_DIR;
+
+  return {
+    rootCA: {
+      storage: rootCA.storage || "disk",
+      sslCaDir,
+    },
+    leafCertificates: {
+      storage: leafCertificates.storage || "disk",
+      wildcard:
+        leafCertificates.wildcard ||
+        (hasCertificateOptions ? "registrable_domain" : "exact_host"),
+      cache: {
+        maxEntries: normalizePositiveNumber(
+          cache.maxEntries,
+          DEFAULT_LEAF_CACHE_MAX_ENTRIES
+        ),
+        ttlMs: normalizePositiveNumber(cache.ttlMs, DEFAULT_LEAF_CACHE_TTL_MS),
+      },
+    },
+  };
+}
+
 export class Proxy implements IProxy {
   ca!: ca;
   connectRequests: Record<string, http.IncomingMessage> = {};
@@ -88,6 +126,7 @@ export class Proxy implements IProxy {
   onWebSocketFrameHandlers: HandlerType<IProxy["onWebSocketFrame"]>;
   options!: IProxyOptions;
   responseContentPotentiallyModified: boolean;
+  certificateOptions!: ReturnType<typeof normalizeCertificateOptions>;
   sslCaDir!: string;
   sslSemaphores: Record<string, semaphore.Semaphore> = {};
   sslServers: Record<string, IProxySSLServer> = {};
@@ -136,9 +175,14 @@ export class Proxy implements IProxy {
       console.info("SNI enabled. Clients not supporting SNI may fail");
     }
     this.httpsPort = this.forceSNI ? options.httpsPort : undefined;
-    this.sslCaDir =
-      options.sslCaDir || path.resolve(process.cwd(), ".http-mitm-proxy");
-    ca.create(this.sslCaDir, (err, ca) => {
+    this.certificateOptions = normalizeCertificateOptions(options);
+    this.sslCaDir = this.certificateOptions.rootCA.sslCaDir;
+    ca.create(
+      {
+        sslCaDir: this.sslCaDir,
+        certificates: this.certificateOptions,
+      },
+      (err, ca) => {
       if (err) {
         return callback(err);
       }
@@ -184,7 +228,8 @@ export class Proxy implements IProxy {
           callback();
         });
       }
-    });
+    }
+    );
     return this;
   }
 
@@ -579,6 +624,13 @@ export class Proxy implements IProxy {
           "keyFileExists",
           "certFileExists",
           (data: ICertficateContext["data"], callback) => {
+            if (files.keyFileData && files.certFileData) {
+              return callback(null, {
+                key: files.keyFileData,
+                cert: files.certFileData,
+                hosts: files.hosts,
+              });
+            }
             if (data.keyFileExists && data.certFileExists) {
               return fs.readFile(files.keyFile, (err, keyFileData) => {
                 if (err) {
@@ -621,11 +673,17 @@ export class Proxy implements IProxy {
         async.auto(
           {
             keyFileExists(callback) {
+              if (!files.keyFile) {
+                return callback(null, false);
+              }
               return fs.exists(files.keyFile, (exists) =>
                 callback(null, exists)
               );
             },
             certFileExists(callback) {
+              if (!files.certFile) {
+                return callback(null, false);
+              }
               return fs.exists(files.certFile, (exists) =>
                 callback(null, exists)
               );
@@ -704,9 +762,11 @@ export class Proxy implements IProxy {
         return makeConnection(sslServer.port);
       }
       const wildcardHost = hostname.replace(/[^.]+\./, "*.");
-      let sem = self.sslSemaphores[wildcardHost];
+      const certificateDetails = self.ca.getLeafCertificateDetails(hostname);
+      const semaphoreKey = certificateDetails.cacheKey || wildcardHost;
+      let sem = self.sslSemaphores[semaphoreKey];
       if (!sem) {
-        sem = self.sslSemaphores[wildcardHost] = semaphore(1);
+        sem = self.sslSemaphores[semaphoreKey] = semaphore(1);
       }
       sem.take(() => {
         if (self.sslServers[hostname]) {
@@ -723,6 +783,7 @@ export class Proxy implements IProxy {
         }
         getHttpsServer(hostname, (err, port) => {
           process.nextTick(sem.leave.bind(sem));
+          delete self.sslSemaphores[semaphoreKey];
           if (err) {
             console.error("Error getting HTTPs server");
             console.error(err);
@@ -730,7 +791,6 @@ export class Proxy implements IProxy {
           }
           return makeConnection(port);
         });
-        delete self.sslSemaphores[wildcardHost];
       });
     } else {
       return makeConnection(this.httpPort);
@@ -741,12 +801,7 @@ export class Proxy implements IProxy {
     hostname: string,
     callback: OnCertificateRequiredCallback
   ) {
-    const self = this;
-    return callback(null, {
-      keyFile: `${self.sslCaDir}/keys/${hostname}.key`,
-      certFile: `${self.sslCaDir}/certs/${hostname}.pem`,
-      hosts: [hostname],
-    });
+    return callback(null, this.ca.getLeafCertificateDetails(hostname));
   }
 
   onCertificateMissing(
@@ -759,6 +814,7 @@ export class Proxy implements IProxy {
       callback(null, {
         certFileData: certPEM,
         keyFileData: privateKeyPEM,
+        cacheKey: files.cacheKey,
         hosts,
       });
     });

@@ -30,6 +30,12 @@ The default logger is silent. Configure `logger` to capture diagnostics such as 
 
 Logger metadata is intentionally structured and should not include full payload bodies. Treat logs as sensitive if they include URLs, headers, hostnames, or connection identifiers.
 
+## Certificate Storage
+
+Root CA and leaf certificates can be disk-backed or memory-backed. Disk-backed root CA mode provides stable client trust across restarts. Memory-backed root CA mode writes no CA material to disk, but clients must trust the returned `server.ca.cert_pem` for that process.
+
+Memory leaf certificates are cached with an LRU/TTL policy. Defaults are `1000` entries and `3_600_000` milliseconds. Use memory leaf storage to avoid unbounded `ssl_ca_dir/certs` and `ssl_ca_dir/keys` growth from per-host certificates.
+
 ## zstd
 
 `content-encoding: zstd` requires an external `zstd` binary on `PATH`. zstd transforms run out of process and are bounded by timeout and output size. Missing or failing zstd transforms are surfaced as decode or encode failures rather than crashing the proxy.

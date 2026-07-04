@@ -8,7 +8,7 @@
 
 > **callback\_error\_policy\_t** = `"TERMINATE"` \| `"PASSTHROUGH"`
 
-Defined in: [classes/httpmitm/httpmitm.types.ts:25](https://github.com/opsimathically/httpmitm/blob/4aebb5332c43f07134a000a763217bcbef810564/src/classes/httpmitm/httpmitm.types.ts#L25)
+Defined in: [classes/httpmitm/httpmitm.types.ts:25](https://github.com/opsimathically/httpmitm/blob/e7c5b973f6579a3a4516f03611e4775f936ef4df/src/classes/httpmitm/httpmitm.types.ts#L25)
 
 Error and timeout policy for interception callbacks.
 

@@ -65,6 +65,50 @@ export type httpmitm_logger_t = {
   error?: (message: string, metadata?: httpmitm_log_metadata_t) => void;
 };
 
+/** Certificate storage backend. */
+export type httpmitm_certificate_storage_t = "disk" | "memory";
+
+/** Leaf certificate identity strategy. */
+export type httpmitm_leaf_certificate_wildcard_t =
+  | "registrable_domain"
+  | "exact_host";
+
+/** In-memory leaf certificate cache limits. */
+export type httpmitm_certificate_cache_options_t = {
+  /** Maximum in-memory leaf certificate entries. Default: 1000. */
+  max_entries?: number;
+  /** Leaf certificate cache TTL in milliseconds. Default: 3_600_000. */
+  ttl_ms?: number;
+};
+
+/** Root CA and leaf certificate storage options. */
+export type httpmitm_certificate_options_t = {
+  root_ca?: {
+    /** Root CA storage backend. Default: `disk`. */
+    storage?: httpmitm_certificate_storage_t;
+    /** Disk directory for persisted root CA material. */
+    ssl_ca_dir?: string;
+  };
+  leaf_certificates?: {
+    /** Leaf certificate storage backend. Default: `disk`. */
+    storage?: httpmitm_certificate_storage_t;
+    /** Leaf certificate identity strategy. Default: `registrable_domain` when `certificates` is configured. */
+    wildcard?: httpmitm_leaf_certificate_wildcard_t;
+    /** In-memory leaf certificate cache options. */
+    cache?: httpmitm_certificate_cache_options_t;
+  };
+};
+
+/** Root CA certificate material exposed after `HTTPMITM.start()`. */
+export type httpmitm_ca_material_t = {
+  /** Root CA certificate PEM for client trust. */
+  cert_pem: string;
+  /** Root CA storage backend used by this server. */
+  storage: httpmitm_certificate_storage_t;
+  /** Root CA certificate path when storage is `disk`. */
+  cert_path?: string;
+};
+
 /** Header mutation entry returned by callbacks. */
 export type header_entry_t = {
   /** Header name. */
@@ -428,8 +472,10 @@ export type httpmitm_start_params_t = {
   host?: string;
   /** HTTP proxy listen port. Use `0` to request an ephemeral port. */
   listen_port?: number;
-  /** Directory for generated CA and leaf certificate material. */
+  /** Compatibility disk directory for generated CA and leaf certificate material. */
   ssl_ca_dir?: string;
+  /** Root CA and leaf certificate storage behavior. */
+  certificates?: httpmitm_certificate_options_t;
   /** Enable keep-alive behavior in the underlying proxy. */
   keep_alive?: boolean;
   /** Underlying proxy socket timeout in milliseconds. */
@@ -466,6 +512,8 @@ export type httpmitm_server_t = {
   host: string;
   /** Effective HTTP proxy listen port. */
   listen_port: number;
+  /** Root CA material for client trust. */
+  ca: httpmitm_ca_material_t;
   /** Awaitable shutdown for all managed proxy servers. */
   close: () => Promise<void>;
 };

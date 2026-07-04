@@ -2,7 +2,11 @@
 
 ## HTTPS Clients Reject Certificates
 
-Trust the generated CA certificate at `ssl_ca_dir/certs/ca.pem` in the client using the proxy. Make sure the client is connecting through the proxy instance that uses the same `ssl_ca_dir`.
+For disk-backed root CA mode, trust the generated CA certificate at `ssl_ca_dir/certs/ca.pem` in the client using the proxy. For memory-backed root CA mode, trust `server.ca.cert_pem`. Make sure the client is connecting through the proxy instance that generated the CA.
+
+## Leaf Certificate Directories Grow Too Large
+
+Use `certificates.leaf_certificates.storage: "memory"` to keep generated leaf certificates out of `ssl_ca_dir`. Use `wildcard: "registrable_domain"` to reuse valid wildcard leaves like `example.com` plus `*.example.com`.
 
 ## Upstream HTTPS Fails With Private Certificates
 

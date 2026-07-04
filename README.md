@@ -2,7 +2,7 @@
 
 `@opsimathically/httpmitm` is a TypeScript HTTP, HTTPS, and WebSocket man-in-the-middle proxy for Node.js. It wraps a fork of `node-http-mitm-proxy` with awaited interception callbacks, typed callback contexts, plugin chaining, bounded body/frame buffering, callback timeouts, and deterministic package outputs for public npm usage.
 
-Use this package only for traffic you own or are explicitly authorized to inspect. HTTPS interception creates certificate authority material on disk; protect `ssl_ca_dir` as credential material.
+Use this package only for traffic you own or are explicitly authorized to inspect. HTTPS interception uses a generated local CA; protect persisted `ssl_ca_dir` material as credential material when disk-backed storage is enabled.
 
 ## Requirements
 
@@ -64,7 +64,7 @@ process.once("SIGINT", async () => {
 });
 ```
 
-Configure HTTP clients to use the proxy at `127.0.0.1:4444`. For HTTPS interception, trust the generated CA certificate at `ssl_ca_dir/certs/ca.pem` in the client making requests through the proxy.
+Configure HTTP clients to use the proxy at `127.0.0.1:4444`. For default disk-backed HTTPS interception, trust the generated CA certificate at `ssl_ca_dir/certs/ca.pem` in the client making requests through the proxy. For memory-backed root CA mode, trust `server.ca.cert_pem`.
 
 ## Interception Model
 
@@ -163,11 +163,47 @@ await httpmitm.start({
 
 ## HTTPS And Certificates
 
-HTTPS CONNECT traffic is intercepted by generating a CA certificate and per-host leaf certificates under `ssl_ca_dir`.
+HTTPS CONNECT traffic is intercepted by generating a local CA certificate and leaf certificates for requested hosts. For backward compatibility, callers that only use `ssl_ca_dir` get the existing disk-backed behavior: the root CA and per-host leaf certificates are stored under `ssl_ca_dir`.
 
 - Set a stable `ssl_ca_dir` if clients need to trust the same CA across restarts.
 - Trust `ssl_ca_dir/certs/ca.pem` only in the test client or controlled environment using the proxy.
 - Do not commit, publish, or casually share generated CA private keys.
+
+Certificate storage can be controlled independently for the root CA and leaf certificates:
+
+```typescript
+const server = await httpmitm.start({
+  host: "127.0.0.1",
+  listen_port: 4444,
+  certificates: {
+    root_ca: { storage: "memory" },
+    leaf_certificates: {
+      storage: "memory",
+      wildcard: "registrable_domain",
+      cache: {
+        max_entries: 1000,
+        ttl_ms: 3_600_000,
+      },
+    },
+  },
+});
+
+console.log(server.ca.cert_pem);
+```
+
+Recommended low-disk-churn mode persists the root CA for stable browser trust and keeps leaf certificates in memory:
+
+```typescript
+await httpmitm.start({
+  ssl_ca_dir: "/tmp/httpmitm-ca",
+  certificates: {
+    root_ca: { storage: "disk" },
+    leaf_certificates: { storage: "memory" },
+  },
+});
+```
+
+When `certificates.leaf_certificates.wildcard` is `registrable_domain`, HTTPMITM uses Public Suffix List parsing to reuse valid wildcard leaf certificates such as `example.com` plus `*.example.com`. IP addresses, `localhost`, single-label hosts, and deeper names that a registrable-domain wildcard cannot cover fall back to exact-host certificates. A universal wildcard certificate is not supported because browsers will not accept one for arbitrary domains.
 
 If upstream HTTPS services use private or self-signed certificates, pass an explicit upstream HTTPS agent:
 
@@ -266,7 +302,7 @@ Generated `docs/` output is kept in the repository for readers but is not includ
 
 - Callback times out: reduce callback work, increase `limits.callback_timeout_ms`, or configure `callback_error_policy: "PASSTHROUGH"` only when fail-open behavior is acceptable.
 - Body or frame is terminated: raise the matching limit after confirming memory capacity and expected payload sizes.
-- HTTPS client rejects certificates: trust `ssl_ca_dir/certs/ca.pem` in the client using the proxy.
+- HTTPS client rejects certificates: trust `ssl_ca_dir/certs/ca.pem` for disk-backed root CA mode, or `server.ca.cert_pem` for memory-backed root CA mode.
 - Upstream self-signed TLS fails: pass `https_agent` with the upstream trust policy you need.
 - zstd payloads are not decoded: install the `zstd` binary and ensure it is on `PATH`.
 - Corrupt or unsupported `Content-Encoding`: inspect `context.decode_error`; passthrough forwards original bytes.

@@ -46,7 +46,7 @@ const server = await httpmitm.start({
 console.log(server.listen_port);
 ```
 
-Configure client software to use the proxy host and port. For HTTPS traffic, the client must trust `ssl_ca_dir/certs/ca.pem`.
+Configure client software to use the proxy host and port. For default disk-backed HTTPS traffic, the client must trust `ssl_ca_dir/certs/ca.pem`. If `certificates.root_ca.storage` is `memory`, trust the returned `server.ca.cert_pem`.
 
 ## Stop Cleanly
 

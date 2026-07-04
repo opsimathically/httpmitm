@@ -8,7 +8,7 @@ The preferred public API is `HTTPMITM`. The lower-level `Proxy` export remains a
 
 - [Getting Started](guides/getting-started.md): install, import, start, and stop the proxy.
 - [HTTP Interception](guides/http-interception.md): headers, bodies, content encoding, and result states.
-- [HTTPS And CA Handling](guides/https-and-ca.md): CONNECT interception, generated CA files, trust, and upstream TLS agents.
+- [HTTPS And CA Handling](guides/https-and-ca.md): CONNECT interception, disk or memory certificate storage, generated CA trust, and upstream TLS agents.
 - [WebSocket Interception](guides/websocket-interception.md): upgrade handling, frames, close events, and limits.
 - [Plugins](guides/plugins.md): deterministic plugin ordering and `CONTINUE` behavior.
 - [Operations And Security](guides/operations-and-security.md): limits, logger behavior, zstd, audit policy, and package contents.
@@ -16,7 +16,7 @@ The preferred public API is `HTTPMITM`. The lower-level `Proxy` export remains a
 
 ## Safety Notice
 
-MITM tooling can expose credentials, session tokens, private payloads, and certificate authority material. Use this package only for systems you own or are explicitly authorized to inspect. Protect `ssl_ca_dir` as sensitive credential storage, and avoid logging full request or response bodies unless your environment is designed for that data.
+MITM tooling can expose credentials, session tokens, private payloads, and certificate authority material. Use this package only for systems you own or are explicitly authorized to inspect. Protect persisted `ssl_ca_dir` material as sensitive credential storage, and avoid logging full request or response bodies unless your environment is designed for that data.
 
 ## API Reference
 

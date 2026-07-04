@@ -6,7 +6,7 @@
 
 # Class: Proxy
 
-Defined in: [forked\_code/proxy.ts:63](https://github.com/opsimathically/httpmitm/blob/4aebb5332c43f07134a000a763217bcbef810564/src/forked_code/proxy.ts#L63)
+Defined in: [forked\_code/proxy.ts:101](https://github.com/opsimathically/httpmitm/blob/e7c5b973f6579a3a4516f03611e4775f936ef4df/src/forked_code/proxy.ts#L101)
 
 Low-level forked proxy export retained for compatibility and advanced
 integrations. Prefer `HTTPMITM` for normal package usage.
@@ -21,7 +21,7 @@ integrations. Prefer `HTTPMITM` for normal package usage.
 
 > **new Proxy**(): `Proxy`
 
-Defined in: [forked\_code/proxy.ts:100](https://github.com/opsimathically/httpmitm/blob/4aebb5332c43f07134a000a763217bcbef810564/src/forked_code/proxy.ts#L100)
+Defined in: [forked\_code/proxy.ts:139](https://github.com/opsimathically/httpmitm/blob/e7c5b973f6579a3a4516f03611e4775f936ef4df/src/forked_code/proxy.ts#L139)
 
 #### Returns
 
@@ -33,7 +33,7 @@ Defined in: [forked\_code/proxy.ts:100](https://github.com/opsimathically/httpmi
 
 > **ca**: `CA`
 
-Defined in: [forked\_code/proxy.ts:64](https://github.com/opsimathically/httpmitm/blob/4aebb5332c43f07134a000a763217bcbef810564/src/forked_code/proxy.ts#L64)
+Defined in: [forked\_code/proxy.ts:102](https://github.com/opsimathically/httpmitm/blob/e7c5b973f6579a3a4516f03611e4775f936ef4df/src/forked_code/proxy.ts#L102)
 
 #### Implementation of
 
@@ -41,11 +41,59 @@ Defined in: [forked\_code/proxy.ts:64](https://github.com/opsimathically/httpmit
 
 ***
 
+### certificateOptions
+
+> **certificateOptions**: `object`
+
+Defined in: [forked\_code/proxy.ts:129](https://github.com/opsimathically/httpmitm/blob/e7c5b973f6579a3a4516f03611e4775f936ef4df/src/forked_code/proxy.ts#L129)
+
+#### leafCertificates
+
+> **leafCertificates**: `object`
+
+##### leafCertificates.cache
+
+> **cache**: `object`
+
+##### leafCertificates.cache.maxEntries
+
+> **maxEntries**: `number`
+
+##### leafCertificates.cache.ttlMs
+
+> **ttlMs**: `number`
+
+##### leafCertificates.storage
+
+> **storage**: `IProxyCertificateStorage`
+
+##### leafCertificates.wildcard
+
+> **wildcard**: `IProxyLeafCertificateWildcard`
+
+#### rootCA
+
+> **rootCA**: `object`
+
+##### rootCA.sslCaDir
+
+> **sslCaDir**: `string`
+
+##### rootCA.storage
+
+> **storage**: `IProxyCertificateStorage`
+
+#### Implementation of
+
+`IProxy.certificateOptions`
+
+***
+
 ### connectRequests
 
 > **connectRequests**: `Record`\<`string`, `http.IncomingMessage`\> = `{}`
 
-Defined in: [forked\_code/proxy.ts:65](https://github.com/opsimathically/httpmitm/blob/4aebb5332c43f07134a000a763217bcbef810564/src/forked_code/proxy.ts#L65)
+Defined in: [forked\_code/proxy.ts:103](https://github.com/opsimathically/httpmitm/blob/e7c5b973f6579a3a4516f03611e4775f936ef4df/src/forked_code/proxy.ts#L103)
 
 ***
 
@@ -53,7 +101,7 @@ Defined in: [forked\_code/proxy.ts:65](https://github.com/opsimathically/httpmit
 
 > **forceSNI**: `boolean`
 
-Defined in: [forked\_code/proxy.ts:66](https://github.com/opsimathically/httpmitm/blob/4aebb5332c43f07134a000a763217bcbef810564/src/forked_code/proxy.ts#L66)
+Defined in: [forked\_code/proxy.ts:104](https://github.com/opsimathically/httpmitm/blob/e7c5b973f6579a3a4516f03611e4775f936ef4df/src/forked_code/proxy.ts#L104)
 
 #### Implementation of
 
@@ -65,7 +113,7 @@ Defined in: [forked\_code/proxy.ts:66](https://github.com/opsimathically/httpmit
 
 > **httpAgent**: `Agent`
 
-Defined in: [forked\_code/proxy.ts:67](https://github.com/opsimathically/httpmitm/blob/4aebb5332c43f07134a000a763217bcbef810564/src/forked_code/proxy.ts#L67)
+Defined in: [forked\_code/proxy.ts:105](https://github.com/opsimathically/httpmitm/blob/e7c5b973f6579a3a4516f03611e4775f936ef4df/src/forked_code/proxy.ts#L105)
 
 #### Implementation of
 
@@ -77,7 +125,7 @@ Defined in: [forked\_code/proxy.ts:67](https://github.com/opsimathically/httpmit
 
 > `optional` **httpHost**: `string`
 
-Defined in: [forked\_code/proxy.ts:68](https://github.com/opsimathically/httpmitm/blob/4aebb5332c43f07134a000a763217bcbef810564/src/forked_code/proxy.ts#L68)
+Defined in: [forked\_code/proxy.ts:106](https://github.com/opsimathically/httpmitm/blob/e7c5b973f6579a3a4516f03611e4775f936ef4df/src/forked_code/proxy.ts#L106)
 
 ***
 
@@ -85,7 +133,7 @@ Defined in: [forked\_code/proxy.ts:68](https://github.com/opsimathically/httpmit
 
 > **httpPort**: `number`
 
-Defined in: [forked\_code/proxy.ts:69](https://github.com/opsimathically/httpmitm/blob/4aebb5332c43f07134a000a763217bcbef810564/src/forked_code/proxy.ts#L69)
+Defined in: [forked\_code/proxy.ts:107](https://github.com/opsimathically/httpmitm/blob/e7c5b973f6579a3a4516f03611e4775f936ef4df/src/forked_code/proxy.ts#L107)
 
 #### Implementation of
 
@@ -97,7 +145,7 @@ Defined in: [forked\_code/proxy.ts:69](https://github.com/opsimathically/httpmit
 
 > **httpsAgent**: `Agent`
 
-Defined in: [forked\_code/proxy.ts:71](https://github.com/opsimathically/httpmitm/blob/4aebb5332c43f07134a000a763217bcbef810564/src/forked_code/proxy.ts#L71)
+Defined in: [forked\_code/proxy.ts:109](https://github.com/opsimathically/httpmitm/blob/e7c5b973f6579a3a4516f03611e4775f936ef4df/src/forked_code/proxy.ts#L109)
 
 #### Implementation of
 
@@ -109,7 +157,7 @@ Defined in: [forked\_code/proxy.ts:71](https://github.com/opsimathically/httpmit
 
 > **httpServer**: `Server`\<*typeof* `IncomingMessage`, *typeof* `ServerResponse`\> \| `undefined`
 
-Defined in: [forked\_code/proxy.ts:70](https://github.com/opsimathically/httpmitm/blob/4aebb5332c43f07134a000a763217bcbef810564/src/forked_code/proxy.ts#L70)
+Defined in: [forked\_code/proxy.ts:108](https://github.com/opsimathically/httpmitm/blob/e7c5b973f6579a3a4516f03611e4775f936ef4df/src/forked_code/proxy.ts#L108)
 
 ***
 
@@ -117,7 +165,7 @@ Defined in: [forked\_code/proxy.ts:70](https://github.com/opsimathically/httpmit
 
 > `optional` **httpsPort**: `number`
 
-Defined in: [forked\_code/proxy.ts:72](https://github.com/opsimathically/httpmitm/blob/4aebb5332c43f07134a000a763217bcbef810564/src/forked_code/proxy.ts#L72)
+Defined in: [forked\_code/proxy.ts:110](https://github.com/opsimathically/httpmitm/blob/e7c5b973f6579a3a4516f03611e4775f936ef4df/src/forked_code/proxy.ts#L110)
 
 #### Implementation of
 
@@ -129,7 +177,7 @@ Defined in: [forked\_code/proxy.ts:72](https://github.com/opsimathically/httpmit
 
 > **httpsServer**: `Server`\<*typeof* `IncomingMessage`, *typeof* `ServerResponse`\> \| `undefined`
 
-Defined in: [forked\_code/proxy.ts:73](https://github.com/opsimathically/httpmitm/blob/4aebb5332c43f07134a000a763217bcbef810564/src/forked_code/proxy.ts#L73)
+Defined in: [forked\_code/proxy.ts:111](https://github.com/opsimathically/httpmitm/blob/e7c5b973f6579a3a4516f03611e4775f936ef4df/src/forked_code/proxy.ts#L111)
 
 ***
 
@@ -137,7 +185,7 @@ Defined in: [forked\_code/proxy.ts:73](https://github.com/opsimathically/httpmit
 
 > **keepAlive**: `boolean`
 
-Defined in: [forked\_code/proxy.ts:74](https://github.com/opsimathically/httpmitm/blob/4aebb5332c43f07134a000a763217bcbef810564/src/forked_code/proxy.ts#L74)
+Defined in: [forked\_code/proxy.ts:112](https://github.com/opsimathically/httpmitm/blob/e7c5b973f6579a3a4516f03611e4775f936ef4df/src/forked_code/proxy.ts#L112)
 
 #### Implementation of
 
@@ -149,7 +197,7 @@ Defined in: [forked\_code/proxy.ts:74](https://github.com/opsimathically/httpmit
 
 > **onConnectHandlers**: `HandlerType`\<(`fcn`) => `void`\>
 
-Defined in: [forked\_code/proxy.ts:75](https://github.com/opsimathically/httpmitm/blob/4aebb5332c43f07134a000a763217bcbef810564/src/forked_code/proxy.ts#L75)
+Defined in: [forked\_code/proxy.ts:113](https://github.com/opsimathically/httpmitm/blob/e7c5b973f6579a3a4516f03611e4775f936ef4df/src/forked_code/proxy.ts#L113)
 
 ***
 
@@ -157,7 +205,7 @@ Defined in: [forked\_code/proxy.ts:75](https://github.com/opsimathically/httpmit
 
 > **onErrorHandlers**: `HandlerType`\<(`callback`) => `void`\>
 
-Defined in: [forked\_code/proxy.ts:76](https://github.com/opsimathically/httpmitm/blob/4aebb5332c43f07134a000a763217bcbef810564/src/forked_code/proxy.ts#L76)
+Defined in: [forked\_code/proxy.ts:114](https://github.com/opsimathically/httpmitm/blob/e7c5b973f6579a3a4516f03611e4775f936ef4df/src/forked_code/proxy.ts#L114)
 
 ***
 
@@ -165,7 +213,7 @@ Defined in: [forked\_code/proxy.ts:76](https://github.com/opsimathically/httpmit
 
 > **onRequestDataHandlers**: `HandlerType`\<(`fcn`) => `void`\>
 
-Defined in: [forked\_code/proxy.ts:77](https://github.com/opsimathically/httpmitm/blob/4aebb5332c43f07134a000a763217bcbef810564/src/forked_code/proxy.ts#L77)
+Defined in: [forked\_code/proxy.ts:115](https://github.com/opsimathically/httpmitm/blob/e7c5b973f6579a3a4516f03611e4775f936ef4df/src/forked_code/proxy.ts#L115)
 
 ***
 
@@ -173,7 +221,7 @@ Defined in: [forked\_code/proxy.ts:77](https://github.com/opsimathically/httpmit
 
 > **onRequestEndHandlers**: `HandlerType`\<(`fcn`) => `void`\>
 
-Defined in: [forked\_code/proxy.ts:78](https://github.com/opsimathically/httpmitm/blob/4aebb5332c43f07134a000a763217bcbef810564/src/forked_code/proxy.ts#L78)
+Defined in: [forked\_code/proxy.ts:116](https://github.com/opsimathically/httpmitm/blob/e7c5b973f6579a3a4516f03611e4775f936ef4df/src/forked_code/proxy.ts#L116)
 
 ***
 
@@ -181,7 +229,7 @@ Defined in: [forked\_code/proxy.ts:78](https://github.com/opsimathically/httpmit
 
 > **onRequestHandlers**: `HandlerType`\<(`fcn`) => `void`\>
 
-Defined in: [forked\_code/proxy.ts:79](https://github.com/opsimathically/httpmitm/blob/4aebb5332c43f07134a000a763217bcbef810564/src/forked_code/proxy.ts#L79)
+Defined in: [forked\_code/proxy.ts:117](https://github.com/opsimathically/httpmitm/blob/e7c5b973f6579a3a4516f03611e4775f936ef4df/src/forked_code/proxy.ts#L117)
 
 ***
 
@@ -189,7 +237,7 @@ Defined in: [forked\_code/proxy.ts:79](https://github.com/opsimathically/httpmit
 
 > **onRequestHeadersHandlers**: `HandlerType`\<(`fcn`) => `void`\>
 
-Defined in: [forked\_code/proxy.ts:80](https://github.com/opsimathically/httpmitm/blob/4aebb5332c43f07134a000a763217bcbef810564/src/forked_code/proxy.ts#L80)
+Defined in: [forked\_code/proxy.ts:118](https://github.com/opsimathically/httpmitm/blob/e7c5b973f6579a3a4516f03611e4775f936ef4df/src/forked_code/proxy.ts#L118)
 
 ***
 
@@ -197,7 +245,7 @@ Defined in: [forked\_code/proxy.ts:80](https://github.com/opsimathically/httpmit
 
 > **onResponseDataHandlers**: `HandlerType`\<(`fcn`) => `void`\>
 
-Defined in: [forked\_code/proxy.ts:81](https://github.com/opsimathically/httpmitm/blob/4aebb5332c43f07134a000a763217bcbef810564/src/forked_code/proxy.ts#L81)
+Defined in: [forked\_code/proxy.ts:119](https://github.com/opsimathically/httpmitm/blob/e7c5b973f6579a3a4516f03611e4775f936ef4df/src/forked_code/proxy.ts#L119)
 
 ***
 
@@ -205,7 +253,7 @@ Defined in: [forked\_code/proxy.ts:81](https://github.com/opsimathically/httpmit
 
 > **onResponseEndHandlers**: `HandlerType`\<(`fcn`) => `void`\>
 
-Defined in: [forked\_code/proxy.ts:82](https://github.com/opsimathically/httpmitm/blob/4aebb5332c43f07134a000a763217bcbef810564/src/forked_code/proxy.ts#L82)
+Defined in: [forked\_code/proxy.ts:120](https://github.com/opsimathically/httpmitm/blob/e7c5b973f6579a3a4516f03611e4775f936ef4df/src/forked_code/proxy.ts#L120)
 
 ***
 
@@ -213,7 +261,7 @@ Defined in: [forked\_code/proxy.ts:82](https://github.com/opsimathically/httpmit
 
 > **onResponseHandlers**: `HandlerType`\<(`fcn`) => `void`\>
 
-Defined in: [forked\_code/proxy.ts:83](https://github.com/opsimathically/httpmitm/blob/4aebb5332c43f07134a000a763217bcbef810564/src/forked_code/proxy.ts#L83)
+Defined in: [forked\_code/proxy.ts:121](https://github.com/opsimathically/httpmitm/blob/e7c5b973f6579a3a4516f03611e4775f936ef4df/src/forked_code/proxy.ts#L121)
 
 ***
 
@@ -221,7 +269,7 @@ Defined in: [forked\_code/proxy.ts:83](https://github.com/opsimathically/httpmit
 
 > **onResponseHeadersHandlers**: `HandlerType`\<(`fcn`) => `void`\>
 
-Defined in: [forked\_code/proxy.ts:84](https://github.com/opsimathically/httpmitm/blob/4aebb5332c43f07134a000a763217bcbef810564/src/forked_code/proxy.ts#L84)
+Defined in: [forked\_code/proxy.ts:122](https://github.com/opsimathically/httpmitm/blob/e7c5b973f6579a3a4516f03611e4775f936ef4df/src/forked_code/proxy.ts#L122)
 
 ***
 
@@ -229,7 +277,7 @@ Defined in: [forked\_code/proxy.ts:84](https://github.com/opsimathically/httpmit
 
 > **onWebSocketCloseHandlers**: `HandlerType`\<(`fcn`) => `void`\>
 
-Defined in: [forked\_code/proxy.ts:85](https://github.com/opsimathically/httpmitm/blob/4aebb5332c43f07134a000a763217bcbef810564/src/forked_code/proxy.ts#L85)
+Defined in: [forked\_code/proxy.ts:123](https://github.com/opsimathically/httpmitm/blob/e7c5b973f6579a3a4516f03611e4775f936ef4df/src/forked_code/proxy.ts#L123)
 
 ***
 
@@ -237,7 +285,7 @@ Defined in: [forked\_code/proxy.ts:85](https://github.com/opsimathically/httpmit
 
 > **onWebSocketConnectionHandlers**: `HandlerType`\<(`fcn`) => `void`\>
 
-Defined in: [forked\_code/proxy.ts:86](https://github.com/opsimathically/httpmitm/blob/4aebb5332c43f07134a000a763217bcbef810564/src/forked_code/proxy.ts#L86)
+Defined in: [forked\_code/proxy.ts:124](https://github.com/opsimathically/httpmitm/blob/e7c5b973f6579a3a4516f03611e4775f936ef4df/src/forked_code/proxy.ts#L124)
 
 ***
 
@@ -245,7 +293,7 @@ Defined in: [forked\_code/proxy.ts:86](https://github.com/opsimathically/httpmit
 
 > **onWebSocketErrorHandlers**: `HandlerType`\<(`fcn`) => `void`\>
 
-Defined in: [forked\_code/proxy.ts:87](https://github.com/opsimathically/httpmitm/blob/4aebb5332c43f07134a000a763217bcbef810564/src/forked_code/proxy.ts#L87)
+Defined in: [forked\_code/proxy.ts:125](https://github.com/opsimathically/httpmitm/blob/e7c5b973f6579a3a4516f03611e4775f936ef4df/src/forked_code/proxy.ts#L125)
 
 ***
 
@@ -253,7 +301,7 @@ Defined in: [forked\_code/proxy.ts:87](https://github.com/opsimathically/httpmit
 
 > **onWebSocketFrameHandlers**: `HandlerType`\<(`fcn`) => `void`\>
 
-Defined in: [forked\_code/proxy.ts:88](https://github.com/opsimathically/httpmitm/blob/4aebb5332c43f07134a000a763217bcbef810564/src/forked_code/proxy.ts#L88)
+Defined in: [forked\_code/proxy.ts:126](https://github.com/opsimathically/httpmitm/blob/e7c5b973f6579a3a4516f03611e4775f936ef4df/src/forked_code/proxy.ts#L126)
 
 ***
 
@@ -261,7 +309,7 @@ Defined in: [forked\_code/proxy.ts:88](https://github.com/opsimathically/httpmit
 
 > **options**: `IProxyOptions`
 
-Defined in: [forked\_code/proxy.ts:89](https://github.com/opsimathically/httpmitm/blob/4aebb5332c43f07134a000a763217bcbef810564/src/forked_code/proxy.ts#L89)
+Defined in: [forked\_code/proxy.ts:127](https://github.com/opsimathically/httpmitm/blob/e7c5b973f6579a3a4516f03611e4775f936ef4df/src/forked_code/proxy.ts#L127)
 
 #### Implementation of
 
@@ -273,7 +321,7 @@ Defined in: [forked\_code/proxy.ts:89](https://github.com/opsimathically/httpmit
 
 > **responseContentPotentiallyModified**: `boolean`
 
-Defined in: [forked\_code/proxy.ts:90](https://github.com/opsimathically/httpmitm/blob/4aebb5332c43f07134a000a763217bcbef810564/src/forked_code/proxy.ts#L90)
+Defined in: [forked\_code/proxy.ts:128](https://github.com/opsimathically/httpmitm/blob/e7c5b973f6579a3a4516f03611e4775f936ef4df/src/forked_code/proxy.ts#L128)
 
 ***
 
@@ -281,7 +329,7 @@ Defined in: [forked\_code/proxy.ts:90](https://github.com/opsimathically/httpmit
 
 > **sslCaDir**: `string`
 
-Defined in: [forked\_code/proxy.ts:91](https://github.com/opsimathically/httpmitm/blob/4aebb5332c43f07134a000a763217bcbef810564/src/forked_code/proxy.ts#L91)
+Defined in: [forked\_code/proxy.ts:130](https://github.com/opsimathically/httpmitm/blob/e7c5b973f6579a3a4516f03611e4775f936ef4df/src/forked_code/proxy.ts#L130)
 
 #### Implementation of
 
@@ -293,7 +341,7 @@ Defined in: [forked\_code/proxy.ts:91](https://github.com/opsimathically/httpmit
 
 > **sslSemaphores**: `Record`\<`string`, `semaphore.Semaphore`\> = `{}`
 
-Defined in: [forked\_code/proxy.ts:92](https://github.com/opsimathically/httpmitm/blob/4aebb5332c43f07134a000a763217bcbef810564/src/forked_code/proxy.ts#L92)
+Defined in: [forked\_code/proxy.ts:131](https://github.com/opsimathically/httpmitm/blob/e7c5b973f6579a3a4516f03611e4775f936ef4df/src/forked_code/proxy.ts#L131)
 
 ***
 
@@ -301,7 +349,7 @@ Defined in: [forked\_code/proxy.ts:92](https://github.com/opsimathically/httpmit
 
 > **sslServers**: `Record`\<`string`, `IProxySSLServer`\> = `{}`
 
-Defined in: [forked\_code/proxy.ts:93](https://github.com/opsimathically/httpmitm/blob/4aebb5332c43f07134a000a763217bcbef810564/src/forked_code/proxy.ts#L93)
+Defined in: [forked\_code/proxy.ts:132](https://github.com/opsimathically/httpmitm/blob/e7c5b973f6579a3a4516f03611e4775f936ef4df/src/forked_code/proxy.ts#L132)
 
 ***
 
@@ -309,7 +357,7 @@ Defined in: [forked\_code/proxy.ts:93](https://github.com/opsimathically/httpmit
 
 > **timeout**: `number`
 
-Defined in: [forked\_code/proxy.ts:94](https://github.com/opsimathically/httpmitm/blob/4aebb5332c43f07134a000a763217bcbef810564/src/forked_code/proxy.ts#L94)
+Defined in: [forked\_code/proxy.ts:133](https://github.com/opsimathically/httpmitm/blob/e7c5b973f6579a3a4516f03611e4775f936ef4df/src/forked_code/proxy.ts#L133)
 
 #### Implementation of
 
@@ -321,7 +369,7 @@ Defined in: [forked\_code/proxy.ts:94](https://github.com/opsimathically/httpmit
 
 > **wsServer**: `WebSocketServer` \| `undefined`
 
-Defined in: [forked\_code/proxy.ts:95](https://github.com/opsimathically/httpmitm/blob/4aebb5332c43f07134a000a763217bcbef810564/src/forked_code/proxy.ts#L95)
+Defined in: [forked\_code/proxy.ts:134](https://github.com/opsimathically/httpmitm/blob/e7c5b973f6579a3a4516f03611e4775f936ef4df/src/forked_code/proxy.ts#L134)
 
 ***
 
@@ -329,7 +377,7 @@ Defined in: [forked\_code/proxy.ts:95](https://github.com/opsimathically/httpmit
 
 > **wssServer**: `WebSocketServer` \| `undefined`
 
-Defined in: [forked\_code/proxy.ts:96](https://github.com/opsimathically/httpmitm/blob/4aebb5332c43f07134a000a763217bcbef810564/src/forked_code/proxy.ts#L96)
+Defined in: [forked\_code/proxy.ts:135](https://github.com/opsimathically/httpmitm/blob/e7c5b973f6579a3a4516f03611e4775f936ef4df/src/forked_code/proxy.ts#L135)
 
 ***
 
@@ -337,7 +385,7 @@ Defined in: [forked\_code/proxy.ts:96](https://github.com/opsimathically/httpmit
 
 > `static` **gunzip**: `object`
 
-Defined in: [forked\_code/proxy.ts:98](https://github.com/opsimathically/httpmitm/blob/4aebb5332c43f07134a000a763217bcbef810564/src/forked_code/proxy.ts#L98)
+Defined in: [forked\_code/proxy.ts:137](https://github.com/opsimathically/httpmitm/blob/e7c5b973f6579a3a4516f03611e4775f936ef4df/src/forked_code/proxy.ts#L137)
 
 #### onRequest()
 
@@ -381,7 +429,7 @@ Defined in: [forked\_code/proxy.ts:98](https://github.com/opsimathically/httpmit
 
 > `static` **wildcard**: `object`
 
-Defined in: [forked\_code/proxy.ts:97](https://github.com/opsimathically/httpmitm/blob/4aebb5332c43f07134a000a763217bcbef810564/src/forked_code/proxy.ts#L97)
+Defined in: [forked\_code/proxy.ts:136](https://github.com/opsimathically/httpmitm/blob/e7c5b973f6579a3a4516f03611e4775f936ef4df/src/forked_code/proxy.ts#L136)
 
 #### onCertificateRequired()
 
@@ -407,7 +455,7 @@ Defined in: [forked\_code/proxy.ts:97](https://github.com/opsimathically/httpmit
 
 > **\_createHttpsServer**(`options`, `callback`): `void`
 
-Defined in: [forked\_code/proxy.ts:191](https://github.com/opsimathically/httpmitm/blob/4aebb5332c43f07134a000a763217bcbef810564/src/forked_code/proxy.ts#L191)
+Defined in: [forked\_code/proxy.ts:236](https://github.com/opsimathically/httpmitm/blob/e7c5b973f6579a3a4516f03611e4775f936ef4df/src/forked_code/proxy.ts#L236)
 
 #### Parameters
 
@@ -429,7 +477,7 @@ Defined in: [forked\_code/proxy.ts:191](https://github.com/opsimathically/httpmi
 
 > **\_onError**(`kind`, `ctx`, `err`): `void`
 
-Defined in: [forked\_code/proxy.ts:767](https://github.com/opsimathically/httpmitm/blob/4aebb5332c43f07134a000a763217bcbef810564/src/forked_code/proxy.ts#L767)
+Defined in: [forked\_code/proxy.ts:823](https://github.com/opsimathically/httpmitm/blob/e7c5b973f6579a3a4516f03611e4775f936ef4df/src/forked_code/proxy.ts#L823)
 
 #### Parameters
 
@@ -455,7 +503,7 @@ Defined in: [forked\_code/proxy.ts:767](https://github.com/opsimathically/httpmi
 
 > **\_onHttpServerConnect**(`req`, `socket`, `head`): `void`
 
-Defined in: [forked\_code/proxy.ts:481](https://github.com/opsimathically/httpmitm/blob/4aebb5332c43f07134a000a763217bcbef810564/src/forked_code/proxy.ts#L481)
+Defined in: [forked\_code/proxy.ts:526](https://github.com/opsimathically/httpmitm/blob/e7c5b973f6579a3a4516f03611e4775f936ef4df/src/forked_code/proxy.ts#L526)
 
 #### Parameters
 
@@ -481,7 +529,7 @@ Defined in: [forked\_code/proxy.ts:481](https://github.com/opsimathically/httpmi
 
 > **\_onHttpServerConnectData**(`req`, `socket`, `head`): `void`
 
-Defined in: [forked\_code/proxy.ts:524](https://github.com/opsimathically/httpmitm/blob/4aebb5332c43f07134a000a763217bcbef810564/src/forked_code/proxy.ts#L524)
+Defined in: [forked\_code/proxy.ts:569](https://github.com/opsimathically/httpmitm/blob/e7c5b973f6579a3a4516f03611e4775f936ef4df/src/forked_code/proxy.ts#L569)
 
 #### Parameters
 
@@ -507,7 +555,7 @@ Defined in: [forked\_code/proxy.ts:524](https://github.com/opsimathically/httpmi
 
 > **\_onHttpServerRequest**(`isSSL`, `clientToProxyRequest`, `proxyToClientResponse`): `void`
 
-Defined in: [forked\_code/proxy.ts:988](https://github.com/opsimathically/httpmitm/blob/4aebb5332c43f07134a000a763217bcbef810564/src/forked_code/proxy.ts#L988)
+Defined in: [forked\_code/proxy.ts:1044](https://github.com/opsimathically/httpmitm/blob/e7c5b973f6579a3a4516f03611e4775f936ef4df/src/forked_code/proxy.ts#L1044)
 
 #### Parameters
 
@@ -533,7 +581,7 @@ Defined in: [forked\_code/proxy.ts:988](https://github.com/opsimathically/httpmi
 
 > **\_onRequest**(`ctx`, `callback`): `void`
 
-Defined in: [forked\_code/proxy.ts:1234](https://github.com/opsimathically/httpmitm/blob/4aebb5332c43f07134a000a763217bcbef810564/src/forked_code/proxy.ts#L1234)
+Defined in: [forked\_code/proxy.ts:1290](https://github.com/opsimathically/httpmitm/blob/e7c5b973f6579a3a4516f03611e4775f936ef4df/src/forked_code/proxy.ts#L1290)
 
 #### Parameters
 
@@ -555,7 +603,7 @@ Defined in: [forked\_code/proxy.ts:1234](https://github.com/opsimathically/httpm
 
 > **\_onRequestData**(`ctx`, `chunk`, `callback`): `void`
 
-Defined in: [forked\_code/proxy.ts:1381](https://github.com/opsimathically/httpmitm/blob/4aebb5332c43f07134a000a763217bcbef810564/src/forked_code/proxy.ts#L1381)
+Defined in: [forked\_code/proxy.ts:1437](https://github.com/opsimathically/httpmitm/blob/e7c5b973f6579a3a4516f03611e4775f936ef4df/src/forked_code/proxy.ts#L1437)
 
 #### Parameters
 
@@ -581,7 +629,7 @@ Defined in: [forked\_code/proxy.ts:1381](https://github.com/opsimathically/httpm
 
 > **\_onRequestEnd**(`ctx`, `callback`): `void`
 
-Defined in: [forked\_code/proxy.ts:1402](https://github.com/opsimathically/httpmitm/blob/4aebb5332c43f07134a000a763217bcbef810564/src/forked_code/proxy.ts#L1402)
+Defined in: [forked\_code/proxy.ts:1458](https://github.com/opsimathically/httpmitm/blob/e7c5b973f6579a3a4516f03611e4775f936ef4df/src/forked_code/proxy.ts#L1458)
 
 #### Parameters
 
@@ -603,7 +651,7 @@ Defined in: [forked\_code/proxy.ts:1402](https://github.com/opsimathically/httpm
 
 > **\_onRequestHeaders**(`ctx`, `callback`): `void`
 
-Defined in: [forked\_code/proxy.ts:1226](https://github.com/opsimathically/httpmitm/blob/4aebb5332c43f07134a000a763217bcbef810564/src/forked_code/proxy.ts#L1226)
+Defined in: [forked\_code/proxy.ts:1282](https://github.com/opsimathically/httpmitm/blob/e7c5b973f6579a3a4516f03611e4775f936ef4df/src/forked_code/proxy.ts#L1282)
 
 #### Parameters
 
@@ -625,7 +673,7 @@ Defined in: [forked\_code/proxy.ts:1226](https://github.com/opsimathically/httpm
 
 > **\_onResponse**(`ctx`, `callback`): `void`
 
-Defined in: [forked\_code/proxy.ts:1416](https://github.com/opsimathically/httpmitm/blob/4aebb5332c43f07134a000a763217bcbef810564/src/forked_code/proxy.ts#L1416)
+Defined in: [forked\_code/proxy.ts:1472](https://github.com/opsimathically/httpmitm/blob/e7c5b973f6579a3a4516f03611e4775f936ef4df/src/forked_code/proxy.ts#L1472)
 
 #### Parameters
 
@@ -647,7 +695,7 @@ Defined in: [forked\_code/proxy.ts:1416](https://github.com/opsimathically/httpm
 
 > **\_onResponseData**(`ctx`, `chunk`, `callback`): `void`
 
-Defined in: [forked\_code/proxy.ts:1432](https://github.com/opsimathically/httpmitm/blob/4aebb5332c43f07134a000a763217bcbef810564/src/forked_code/proxy.ts#L1432)
+Defined in: [forked\_code/proxy.ts:1488](https://github.com/opsimathically/httpmitm/blob/e7c5b973f6579a3a4516f03611e4775f936ef4df/src/forked_code/proxy.ts#L1488)
 
 #### Parameters
 
@@ -673,7 +721,7 @@ Defined in: [forked\_code/proxy.ts:1432](https://github.com/opsimathically/httpm
 
 > **\_onResponseEnd**(`ctx`, `callback`): `void`
 
-Defined in: [forked\_code/proxy.ts:1452](https://github.com/opsimathically/httpmitm/blob/4aebb5332c43f07134a000a763217bcbef810564/src/forked_code/proxy.ts#L1452)
+Defined in: [forked\_code/proxy.ts:1508](https://github.com/opsimathically/httpmitm/blob/e7c5b973f6579a3a4516f03611e4775f936ef4df/src/forked_code/proxy.ts#L1508)
 
 #### Parameters
 
@@ -695,7 +743,7 @@ Defined in: [forked\_code/proxy.ts:1452](https://github.com/opsimathically/httpm
 
 > **\_onResponseHeaders**(`ctx`, `callback`): `void`
 
-Defined in: [forked\_code/proxy.ts:1424](https://github.com/opsimathically/httpmitm/blob/4aebb5332c43f07134a000a763217bcbef810564/src/forked_code/proxy.ts#L1424)
+Defined in: [forked\_code/proxy.ts:1480](https://github.com/opsimathically/httpmitm/blob/e7c5b973f6579a3a4516f03611e4775f936ef4df/src/forked_code/proxy.ts#L1480)
 
 #### Parameters
 
@@ -717,7 +765,7 @@ Defined in: [forked\_code/proxy.ts:1424](https://github.com/opsimathically/httpm
 
 > **\_onSocketError**(`socketDescription`, `err`): `void`
 
-Defined in: [forked\_code/proxy.ts:473](https://github.com/opsimathically/httpmitm/blob/4aebb5332c43f07134a000a763217bcbef810564/src/forked_code/proxy.ts#L473)
+Defined in: [forked\_code/proxy.ts:518](https://github.com/opsimathically/httpmitm/blob/e7c5b973f6579a3a4516f03611e4775f936ef4df/src/forked_code/proxy.ts#L518)
 
 #### Parameters
 
@@ -739,7 +787,7 @@ Defined in: [forked\_code/proxy.ts:473](https://github.com/opsimathically/httpmi
 
 > **\_onWebSocketClose**(`ctx`, `closedByServer`, `code`, `message`): `void`
 
-Defined in: [forked\_code/proxy.ts:1304](https://github.com/opsimathically/httpmitm/blob/4aebb5332c43f07134a000a763217bcbef810564/src/forked_code/proxy.ts#L1304)
+Defined in: [forked\_code/proxy.ts:1360](https://github.com/opsimathically/httpmitm/blob/e7c5b973f6579a3a4516f03611e4775f936ef4df/src/forked_code/proxy.ts#L1360)
 
 #### Parameters
 
@@ -769,7 +817,7 @@ Defined in: [forked\_code/proxy.ts:1304](https://github.com/opsimathically/httpm
 
 > **\_onWebSocketConnection**(`ctx`, `callback`): `void`
 
-Defined in: [forked\_code/proxy.ts:1242](https://github.com/opsimathically/httpmitm/blob/4aebb5332c43f07134a000a763217bcbef810564/src/forked_code/proxy.ts#L1242)
+Defined in: [forked\_code/proxy.ts:1298](https://github.com/opsimathically/httpmitm/blob/e7c5b973f6579a3a4516f03611e4775f936ef4df/src/forked_code/proxy.ts#L1298)
 
 #### Parameters
 
@@ -791,7 +839,7 @@ Defined in: [forked\_code/proxy.ts:1242](https://github.com/opsimathically/httpm
 
 > **\_onWebSocketError**(`ctx`, `err`): `void`
 
-Defined in: [forked\_code/proxy.ts:1352](https://github.com/opsimathically/httpmitm/blob/4aebb5332c43f07134a000a763217bcbef810564/src/forked_code/proxy.ts#L1352)
+Defined in: [forked\_code/proxy.ts:1408](https://github.com/opsimathically/httpmitm/blob/e7c5b973f6579a3a4516f03611e4775f936ef4df/src/forked_code/proxy.ts#L1408)
 
 #### Parameters
 
@@ -813,7 +861,7 @@ Defined in: [forked\_code/proxy.ts:1352](https://github.com/opsimathically/httpm
 
 > **\_onWebSocketFrame**(`ctx`, `type`, `fromServer`, `data`, `flags?`): `void`
 
-Defined in: [forked\_code/proxy.ts:1252](https://github.com/opsimathically/httpmitm/blob/4aebb5332c43f07134a000a763217bcbef810564/src/forked_code/proxy.ts#L1252)
+Defined in: [forked\_code/proxy.ts:1308](https://github.com/opsimathically/httpmitm/blob/e7c5b973f6579a3a4516f03611e4775f936ef4df/src/forked_code/proxy.ts#L1308)
 
 #### Parameters
 
@@ -847,7 +895,7 @@ Defined in: [forked\_code/proxy.ts:1252](https://github.com/opsimathically/httpm
 
 > **\_onWebSocketServerConnect**(`isSSL`, `ws`, `upgradeReq`): `void`
 
-Defined in: [forked\_code/proxy.ts:788](https://github.com/opsimathically/httpmitm/blob/4aebb5332c43f07134a000a763217bcbef810564/src/forked_code/proxy.ts#L788)
+Defined in: [forked\_code/proxy.ts:844](https://github.com/opsimathically/httpmitm/blob/e7c5b973f6579a3a4516f03611e4775f936ef4df/src/forked_code/proxy.ts#L844)
 
 #### Parameters
 
@@ -873,7 +921,7 @@ Defined in: [forked\_code/proxy.ts:788](https://github.com/opsimathically/httpmi
 
 > **close**(): `Proxy`
 
-Defined in: [forked\_code/proxy.ts:240](https://github.com/opsimathically/httpmitm/blob/4aebb5332c43f07134a000a763217bcbef810564/src/forked_code/proxy.ts#L240)
+Defined in: [forked\_code/proxy.ts:285](https://github.com/opsimathically/httpmitm/blob/e7c5b973f6579a3a4516f03611e4775f936ef4df/src/forked_code/proxy.ts#L285)
 
 proxy.close
 Stops the proxy listening.
@@ -896,7 +944,7 @@ proxy.close();
 
 > **closeAsync**(): `Promise`\<`Proxy`\>
 
-Defined in: [forked\_code/proxy.ts:261](https://github.com/opsimathically/httpmitm/blob/4aebb5332c43f07134a000a763217bcbef810564/src/forked_code/proxy.ts#L261)
+Defined in: [forked\_code/proxy.ts:306](https://github.com/opsimathically/httpmitm/blob/e7c5b973f6579a3a4516f03611e4775f936ef4df/src/forked_code/proxy.ts#L306)
 
 #### Returns
 
@@ -912,7 +960,7 @@ Defined in: [forked\_code/proxy.ts:261](https://github.com/opsimathically/httpmi
 
 > **listen**(`options`, `callback`): `Proxy`
 
-Defined in: [forked\_code/proxy.ts:118](https://github.com/opsimathically/httpmitm/blob/4aebb5332c43f07134a000a763217bcbef810564/src/forked_code/proxy.ts#L118)
+Defined in: [forked\_code/proxy.ts:157](https://github.com/opsimathically/httpmitm/blob/e7c5b973f6579a3a4516f03611e4775f936ef4df/src/forked_code/proxy.ts#L157)
 
 Starts the proxy listening on the given port.  example: proxy.listen({ port: 80 });
 
@@ -940,7 +988,7 @@ Starts the proxy listening on the given port.  example: proxy.listen({ port: 80 
 
 > **onCertificateMissing**(`ctx`, `files`, `callback`): `void`
 
-Defined in: [forked\_code/proxy.ts:752](https://github.com/opsimathically/httpmitm/blob/4aebb5332c43f07134a000a763217bcbef810564/src/forked_code/proxy.ts#L752)
+Defined in: [forked\_code/proxy.ts:807](https://github.com/opsimathically/httpmitm/blob/e7c5b973f6579a3a4516f03611e4775f936ef4df/src/forked_code/proxy.ts#L807)
 
 #### Parameters
 
@@ -970,7 +1018,7 @@ Defined in: [forked\_code/proxy.ts:752](https://github.com/opsimathically/httpmi
 
 > **onCertificateRequired**(`hostname`, `callback`): `void`
 
-Defined in: [forked\_code/proxy.ts:740](https://github.com/opsimathically/httpmitm/blob/4aebb5332c43f07134a000a763217bcbef810564/src/forked_code/proxy.ts#L740)
+Defined in: [forked\_code/proxy.ts:800](https://github.com/opsimathically/httpmitm/blob/e7c5b973f6579a3a4516f03611e4775f936ef4df/src/forked_code/proxy.ts#L800)
 
 #### Parameters
 
@@ -996,7 +1044,7 @@ Defined in: [forked\_code/proxy.ts:740](https://github.com/opsimathically/httpmi
 
 > **onConnect**(`fn`): `Proxy`
 
-Defined in: [forked\_code/proxy.ts:312](https://github.com/opsimathically/httpmitm/blob/4aebb5332c43f07134a000a763217bcbef810564/src/forked_code/proxy.ts#L312)
+Defined in: [forked\_code/proxy.ts:357](https://github.com/opsimathically/httpmitm/blob/e7c5b973f6579a3a4516f03611e4775f936ef4df/src/forked_code/proxy.ts#L357)
 
 #### Parameters
 
@@ -1018,7 +1066,7 @@ Defined in: [forked\_code/proxy.ts:312](https://github.com/opsimathically/httpmi
 
 > **onError**(`fn`): `Proxy`
 
-Defined in: [forked\_code/proxy.ts:307](https://github.com/opsimathically/httpmitm/blob/4aebb5332c43f07134a000a763217bcbef810564/src/forked_code/proxy.ts#L307)
+Defined in: [forked\_code/proxy.ts:352](https://github.com/opsimathically/httpmitm/blob/e7c5b973f6579a3a4516f03611e4775f936ef4df/src/forked_code/proxy.ts#L352)
 
 Adds a function to the list of functions to get called if an error occures.
 
@@ -1046,7 +1094,7 @@ fn(ctx, err, errorKind) - The function to be called on an error.
 
 > **onRequest**(`fn`): `Proxy`
 
-Defined in: [forked\_code/proxy.ts:322](https://github.com/opsimathically/httpmitm/blob/4aebb5332c43f07134a000a763217bcbef810564/src/forked_code/proxy.ts#L322)
+Defined in: [forked\_code/proxy.ts:367](https://github.com/opsimathically/httpmitm/blob/e7c5b973f6579a3a4516f03611e4775f936ef4df/src/forked_code/proxy.ts#L367)
 
 Adds a function to get called at the beginning of a request.
 
@@ -1080,7 +1128,7 @@ proxy.onRequest(function(ctx, callback) {
 
 > **onRequestData**(`fn`): `Proxy`
 
-Defined in: [forked\_code/proxy.ts:373](https://github.com/opsimathically/httpmitm/blob/4aebb5332c43f07134a000a763217bcbef810564/src/forked_code/proxy.ts#L373)
+Defined in: [forked\_code/proxy.ts:418](https://github.com/opsimathically/httpmitm/blob/e7c5b973f6579a3a4516f03611e4775f936ef4df/src/forked_code/proxy.ts#L418)
 
 #### Parameters
 
@@ -1102,7 +1150,7 @@ Defined in: [forked\_code/proxy.ts:373](https://github.com/opsimathically/httpmi
 
 > **onRequestEnd**(`fn`): `Proxy`
 
-Defined in: [forked\_code/proxy.ts:378](https://github.com/opsimathically/httpmitm/blob/4aebb5332c43f07134a000a763217bcbef810564/src/forked_code/proxy.ts#L378)
+Defined in: [forked\_code/proxy.ts:423](https://github.com/opsimathically/httpmitm/blob/e7c5b973f6579a3a4516f03611e4775f936ef4df/src/forked_code/proxy.ts#L423)
 
 #### Parameters
 
@@ -1124,7 +1172,7 @@ Defined in: [forked\_code/proxy.ts:378](https://github.com/opsimathically/httpmi
 
 > **onRequestHeaders**(`fn`): `Proxy`
 
-Defined in: [forked\_code/proxy.ts:317](https://github.com/opsimathically/httpmitm/blob/4aebb5332c43f07134a000a763217bcbef810564/src/forked_code/proxy.ts#L317)
+Defined in: [forked\_code/proxy.ts:362](https://github.com/opsimathically/httpmitm/blob/e7c5b973f6579a3a4516f03611e4775f936ef4df/src/forked_code/proxy.ts#L362)
 
 #### Parameters
 
@@ -1146,7 +1194,7 @@ Defined in: [forked\_code/proxy.ts:317](https://github.com/opsimathically/httpmi
 
 > **onResponse**(`fn`): `Proxy`
 
-Defined in: [forked\_code/proxy.ts:383](https://github.com/opsimathically/httpmitm/blob/4aebb5332c43f07134a000a763217bcbef810564/src/forked_code/proxy.ts#L383)
+Defined in: [forked\_code/proxy.ts:428](https://github.com/opsimathically/httpmitm/blob/e7c5b973f6579a3a4516f03611e4775f936ef4df/src/forked_code/proxy.ts#L428)
 
 Adds a function to get called at the beginning of the response.
 
@@ -1180,7 +1228,7 @@ proxy.onResponse(function(ctx, callback) {
 
 > **onResponseData**(`fn`): `Proxy`
 
-Defined in: [forked\_code/proxy.ts:393](https://github.com/opsimathically/httpmitm/blob/4aebb5332c43f07134a000a763217bcbef810564/src/forked_code/proxy.ts#L393)
+Defined in: [forked\_code/proxy.ts:438](https://github.com/opsimathically/httpmitm/blob/e7c5b973f6579a3a4516f03611e4775f936ef4df/src/forked_code/proxy.ts#L438)
 
 #### Parameters
 
@@ -1202,7 +1250,7 @@ Defined in: [forked\_code/proxy.ts:393](https://github.com/opsimathically/httpmi
 
 > **onResponseEnd**(`fn`): `Proxy`
 
-Defined in: [forked\_code/proxy.ts:399](https://github.com/opsimathically/httpmitm/blob/4aebb5332c43f07134a000a763217bcbef810564/src/forked_code/proxy.ts#L399)
+Defined in: [forked\_code/proxy.ts:444](https://github.com/opsimathically/httpmitm/blob/e7c5b973f6579a3a4516f03611e4775f936ef4df/src/forked_code/proxy.ts#L444)
 
 #### Parameters
 
@@ -1224,7 +1272,7 @@ Defined in: [forked\_code/proxy.ts:399](https://github.com/opsimathically/httpmi
 
 > **onResponseHeaders**(`fn`): `Proxy`
 
-Defined in: [forked\_code/proxy.ts:388](https://github.com/opsimathically/httpmitm/blob/4aebb5332c43f07134a000a763217bcbef810564/src/forked_code/proxy.ts#L388)
+Defined in: [forked\_code/proxy.ts:433](https://github.com/opsimathically/httpmitm/blob/e7c5b973f6579a3a4516f03611e4775f936ef4df/src/forked_code/proxy.ts#L433)
 
 #### Parameters
 
@@ -1246,7 +1294,7 @@ Defined in: [forked\_code/proxy.ts:388](https://github.com/opsimathically/httpmi
 
 > **onWebSocketClose**(`fn`): `Proxy`
 
-Defined in: [forked\_code/proxy.ts:363](https://github.com/opsimathically/httpmitm/blob/4aebb5332c43f07134a000a763217bcbef810564/src/forked_code/proxy.ts#L363)
+Defined in: [forked\_code/proxy.ts:408](https://github.com/opsimathically/httpmitm/blob/e7c5b973f6579a3a4516f03611e4775f936ef4df/src/forked_code/proxy.ts#L408)
 
 #### Parameters
 
@@ -1268,7 +1316,7 @@ Defined in: [forked\_code/proxy.ts:363](https://github.com/opsimathically/httpmi
 
 > **onWebSocketConnection**(`fn`): `Proxy`
 
-Defined in: [forked\_code/proxy.ts:327](https://github.com/opsimathically/httpmitm/blob/4aebb5332c43f07134a000a763217bcbef810564/src/forked_code/proxy.ts#L327)
+Defined in: [forked\_code/proxy.ts:372](https://github.com/opsimathically/httpmitm/blob/e7c5b973f6579a3a4516f03611e4775f936ef4df/src/forked_code/proxy.ts#L372)
 
 #### Parameters
 
@@ -1290,7 +1338,7 @@ Defined in: [forked\_code/proxy.ts:327](https://github.com/opsimathically/httpmi
 
 > **onWebSocketError**(`fn`): `Proxy`
 
-Defined in: [forked\_code/proxy.ts:368](https://github.com/opsimathically/httpmitm/blob/4aebb5332c43f07134a000a763217bcbef810564/src/forked_code/proxy.ts#L368)
+Defined in: [forked\_code/proxy.ts:413](https://github.com/opsimathically/httpmitm/blob/e7c5b973f6579a3a4516f03611e4775f936ef4df/src/forked_code/proxy.ts#L413)
 
 #### Parameters
 
@@ -1312,7 +1360,7 @@ Defined in: [forked\_code/proxy.ts:368](https://github.com/opsimathically/httpmi
 
 > **onWebSocketFrame**(`fn`): `Proxy`
 
-Defined in: [forked\_code/proxy.ts:358](https://github.com/opsimathically/httpmitm/blob/4aebb5332c43f07134a000a763217bcbef810564/src/forked_code/proxy.ts#L358)
+Defined in: [forked\_code/proxy.ts:403](https://github.com/opsimathically/httpmitm/blob/e7c5b973f6579a3a4516f03611e4775f936ef4df/src/forked_code/proxy.ts#L403)
 
 #### Parameters
 
@@ -1334,7 +1382,7 @@ Defined in: [forked\_code/proxy.ts:358](https://github.com/opsimathically/httpmi
 
 > **onWebSocketMessage**(`fn`): `Proxy`
 
-Defined in: [forked\_code/proxy.ts:345](https://github.com/opsimathically/httpmitm/blob/4aebb5332c43f07134a000a763217bcbef810564/src/forked_code/proxy.ts#L345)
+Defined in: [forked\_code/proxy.ts:390](https://github.com/opsimathically/httpmitm/blob/e7c5b973f6579a3a4516f03611e4775f936ef4df/src/forked_code/proxy.ts#L390)
 
 #### Parameters
 
@@ -1356,7 +1404,7 @@ Defined in: [forked\_code/proxy.ts:345](https://github.com/opsimathically/httpmi
 
 > **onWebSocketSend**(`fn`): `Proxy`
 
-Defined in: [forked\_code/proxy.ts:332](https://github.com/opsimathically/httpmitm/blob/4aebb5332c43f07134a000a763217bcbef810564/src/forked_code/proxy.ts#L332)
+Defined in: [forked\_code/proxy.ts:377](https://github.com/opsimathically/httpmitm/blob/e7c5b973f6579a3a4516f03611e4775f936ef4df/src/forked_code/proxy.ts#L377)
 
 #### Parameters
 
@@ -1378,7 +1426,7 @@ Defined in: [forked\_code/proxy.ts:332](https://github.com/opsimathically/httpmi
 
 > **use**(`mod`): `Proxy`
 
-Defined in: [forked\_code/proxy.ts:404](https://github.com/opsimathically/httpmitm/blob/4aebb5332c43f07134a000a763217bcbef810564/src/forked_code/proxy.ts#L404)
+Defined in: [forked\_code/proxy.ts:449](https://github.com/opsimathically/httpmitm/blob/e7c5b973f6579a3a4516f03611e4775f936ef4df/src/forked_code/proxy.ts#L449)
 
 Adds a module into the proxy. Modules encapsulate multiple life cycle processing functions into one object.
 
@@ -1426,7 +1474,7 @@ Proxy.wildcard Generates wilcard certificates by default (so less certificates a
 
 > `static` **filterAndCanonizeHeaders**(`originalHeaders`): `object`
 
-Defined in: [forked\_code/proxy.ts:1500](https://github.com/opsimathically/httpmitm/blob/4aebb5332c43f07134a000a763217bcbef810564/src/forked_code/proxy.ts#L1500)
+Defined in: [forked\_code/proxy.ts:1556](https://github.com/opsimathically/httpmitm/blob/e7c5b973f6579a3a4516f03611e4775f936ef4df/src/forked_code/proxy.ts#L1556)
 
 #### Parameters
 
@@ -1444,7 +1492,7 @@ Defined in: [forked\_code/proxy.ts:1500](https://github.com/opsimathically/httpm
 
 > `static` **parseHost**(`hostString`, `defaultPort?`): `object`
 
-Defined in: [forked\_code/proxy.ts:1477](https://github.com/opsimathically/httpmitm/blob/4aebb5332c43f07134a000a763217bcbef810564/src/forked_code/proxy.ts#L1477)
+Defined in: [forked\_code/proxy.ts:1533](https://github.com/opsimathically/httpmitm/blob/e7c5b973f6579a3a4516f03611e4775f936ef4df/src/forked_code/proxy.ts#L1533)
 
 #### Parameters
 
@@ -1474,7 +1522,7 @@ Defined in: [forked\_code/proxy.ts:1477](https://github.com/opsimathically/httpm
 
 > `static` **parseHostAndPort**(`req`, `defaultPort?`): \{ `host`: `string`; `port`: `number` \| `undefined`; \} \| `null`
 
-Defined in: [forked\_code/proxy.ts:1465](https://github.com/opsimathically/httpmitm/blob/4aebb5332c43f07134a000a763217bcbef810564/src/forked_code/proxy.ts#L1465)
+Defined in: [forked\_code/proxy.ts:1521](https://github.com/opsimathically/httpmitm/blob/e7c5b973f6579a3a4516f03611e4775f936ef4df/src/forked_code/proxy.ts#L1521)
 
 #### Parameters
 

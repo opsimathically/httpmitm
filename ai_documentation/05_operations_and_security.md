@@ -2,9 +2,11 @@
 
 ## CA And TLS
 
-- HTTPS interception generates and caches CA and leaf certificates in `ssl_ca_dir`.
-- Production users must protect this directory like credential material.
-- README must document how to trust the generated CA for local testing.
+- HTTPS interception can use disk-backed or memory-backed certificate material.
+- Disk-backed root CA and leaf certificate storage uses `ssl_ca_dir`; production users must protect this directory like credential material.
+- Memory-backed root CA storage exposes `server.ca.cert_pem` for client trust and writes no CA material to disk.
+- Memory-backed leaf certificate storage uses an in-process LRU/TTL cache and avoids per-host leaf certificate files.
+- README must document how to trust the generated CA for disk and memory modes.
 
 ## Limits And Timeouts
 
@@ -12,6 +14,7 @@
 - Increase limits only when callback code and host memory sizing are understood.
 - Callback timeout defaults to 30 seconds.
 - Binary transform timeout defaults to 5 seconds.
+- In-memory leaf certificate cache defaults to 1000 entries and 1 hour TTL.
 
 ## Logging
 

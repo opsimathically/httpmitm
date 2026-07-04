@@ -1,7 +1,7 @@
 import assert from "node:assert";
 import { spawnSync } from "node:child_process";
 import { once } from "node:events";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import http, { type IncomingMessage, type ServerResponse } from "node:http";
 import https from "node:https";
 import type { AddressInfo } from "node:net";
@@ -131,9 +131,16 @@ async function StartHttpsServer(params: {
 async function SendHttpsConnectRequestViaProxy(params: {
   proxy_port: number;
   target_port: number;
-  ca_cert_path: string;
+  ca_cert_path?: string;
+  ca_cert_pem?: string;
+  connect_host?: string;
+  servername?: string;
+  request_host?: string;
   path: string;
 }): Promise<http_proxy_request_result_t> {
+  const connect_host = params.connect_host || "localhost";
+  const servername = params.servername || connect_host;
+  const request_host = params.request_host || "localhost";
   const socket = net.connect({
     host: "127.0.0.1",
     port: params.proxy_port,
@@ -142,8 +149,8 @@ async function SendHttpsConnectRequestViaProxy(params: {
 
   socket.write(
     [
-      `CONNECT localhost:${params.target_port} HTTP/1.1`,
-      `Host: localhost:${params.target_port}`,
+      `CONNECT ${connect_host}:${params.target_port} HTTP/1.1`,
+      `Host: ${connect_host}:${params.target_port}`,
       "",
       "",
     ].join("\r\n")
@@ -158,8 +165,11 @@ async function SendHttpsConnectRequestViaProxy(params: {
 
   const tls_socket = tls.connect({
     socket,
-    servername: "localhost",
-    ca: readFileSync(params.ca_cert_path),
+    servername,
+    ca:
+      typeof params.ca_cert_pem === "string"
+        ? Buffer.from(params.ca_cert_pem)
+        : readFileSync(params.ca_cert_path || ""),
     rejectUnauthorized: true,
   });
   await once(tls_socket, "secureConnect");
@@ -167,7 +177,7 @@ async function SendHttpsConnectRequestViaProxy(params: {
   tls_socket.write(
     [
       `GET ${params.path} HTTP/1.1`,
-      `Host: localhost:${params.target_port}`,
+      `Host: ${request_host}:${params.target_port}`,
       "Connection: close",
       "",
       "",
@@ -203,9 +213,53 @@ async function CloseWebSocketServer(params: {
   });
 }
 
+async function CloseGeneratedSslServers(params: {
+  proxy: Awaited<ReturnType<HTTPMITM["start"]>>["proxy"];
+}): Promise<void> {
+  const servers = new Set(
+    Object.values(params.proxy.sslServers)
+      .map((ssl_server) => ssl_server.server)
+      .filter((server): server is https.Server => typeof server !== "undefined")
+  );
+  const websocket_servers = new Set(
+    Object.values(params.proxy.sslServers)
+      .map((ssl_server) => ssl_server.wsServer)
+      .filter(
+        (websocket_server): websocket_server is WebSocketServer =>
+          typeof websocket_server !== "undefined"
+      )
+  );
+
+  await Promise.all([
+    ...[...websocket_servers].map(
+      (websocket_server) =>
+        new Promise<void>((resolve) => {
+          websocket_server.close(() => resolve());
+        })
+    ),
+    ...[...servers].map(
+      (server) =>
+        new Promise<void>((resolve) => {
+          server.close(() => resolve());
+        })
+    ),
+  ]);
+  params.proxy.sslServers = {};
+}
+
 function CreateSslCaDir(params: { test_name: string }): string {
   const safe_test_name = params.test_name.replace(/[^a-zA-Z0-9]/g, "_");
   return path.join("/tmp", `httpmitm_${safe_test_name}_${Date.now()}`);
+}
+
+async function WaitForPath(params: { file_path: string }): Promise<void> {
+  for (let attempt = 0; attempt < 40; attempt += 1) {
+    if (existsSync(params.file_path)) {
+      return;
+    }
+    await Delay({ ms: 25 });
+  }
+  assert.ok(existsSync(params.file_path), `${params.file_path} should exist`);
 }
 
 async function StartHttpMitm(params: {
@@ -1622,6 +1676,333 @@ test("HTTPS CONNECT/TLS traffic is intercepted and can be modified", async () =>
     assert.equal(response.status_code, 200);
     assert.equal(response.body, "secure-modified");
     assert.equal(callback_saw_ssl, true);
+    await WaitForPath({ file_path: path.join(ssl_ca_dir, "certs", "ca.pem") });
+    await WaitForPath({
+      file_path: path.join(ssl_ca_dir, "certs", "localhost.pem"),
+    });
+    await WaitForPath({
+      file_path: path.join(ssl_ca_dir, "keys", "localhost.key"),
+    });
+  } finally {
+    await mitm_server.close();
+    await CloseHttpServer({ server: upstream_server.server });
+  }
+});
+
+test("HTTPS disk root with memory leaf certificates avoids per-host leaf files", async () => {
+  const upstream_server = await StartHttpsServer({
+    handler: async (_request, response) => {
+      response.writeHead(200, { "content-type": "text/plain" });
+      response.end("memory-leaf-upstream");
+    },
+  });
+
+  const ssl_ca_dir = CreateSslCaDir({ test_name: "memory_leaf_disk_root" });
+  const mitm_server = await StartHttpMitm({
+    start_params: {
+      host: "127.0.0.1",
+      listen_port: 0,
+      ssl_ca_dir,
+      https_agent: new https.Agent({ rejectUnauthorized: false }),
+      certificates: {
+        root_ca: { storage: "disk" },
+        leaf_certificates: { storage: "memory" },
+      },
+    },
+  });
+
+  try {
+    const response = await SendHttpsConnectRequestViaProxy({
+      proxy_port: mitm_server.listen_port,
+      target_port: upstream_server.port,
+      ca_cert_path: path.join(ssl_ca_dir, "certs", "ca.pem"),
+      path: "/memory-leaf",
+    });
+
+    assert.equal(response.status_code, 200);
+    assert.match(response.body, /memory-leaf-upstream/);
+    await WaitForPath({ file_path: path.join(ssl_ca_dir, "certs", "ca.pem") });
+    assert.equal(existsSync(path.join(ssl_ca_dir, "certs", "localhost.pem")), false);
+    assert.equal(existsSync(path.join(ssl_ca_dir, "keys", "localhost.key")), false);
+  } finally {
+    await mitm_server.close();
+    await CloseHttpServer({ server: upstream_server.server });
+  }
+});
+
+test("HTTPS memory root and memory leaf certificates require no certificate directory", async () => {
+  const upstream_server = await StartHttpsServer({
+    handler: async (_request, response) => {
+      response.writeHead(200, { "content-type": "text/plain" });
+      response.end("memory-root-upstream");
+    },
+  });
+
+  const unused_ssl_ca_dir = CreateSslCaDir({ test_name: "memory_root_unused" });
+  const mitm_server = await StartHttpMitm({
+    start_params: {
+      host: "127.0.0.1",
+      listen_port: 0,
+      https_agent: new https.Agent({ rejectUnauthorized: false }),
+      certificates: {
+        root_ca: { storage: "memory", ssl_ca_dir: unused_ssl_ca_dir },
+        leaf_certificates: { storage: "memory" },
+      },
+    },
+  });
+
+  try {
+    assert.equal(mitm_server.ca.storage, "memory");
+    assert.equal(typeof mitm_server.ca.cert_pem, "string");
+    assert.equal(mitm_server.ca.cert_path, undefined);
+
+    const response = await SendHttpsConnectRequestViaProxy({
+      proxy_port: mitm_server.listen_port,
+      target_port: upstream_server.port,
+      ca_cert_pem: mitm_server.ca.cert_pem,
+      path: "/memory-root",
+    });
+
+    assert.equal(response.status_code, 200);
+    assert.match(response.body, /memory-root-upstream/);
+    assert.equal(existsSync(unused_ssl_ca_dir), false);
+  } finally {
+    await mitm_server.close();
+    await CloseHttpServer({ server: upstream_server.server });
+  }
+});
+
+test("HTTPS memory leaf certificates reuse registrable-domain wildcard cache entries", async () => {
+  const upstream_server = await StartHttpsServer({
+    handler: async (_request, response) => {
+      response.writeHead(200, { "content-type": "text/plain" });
+      response.end("wildcard-upstream");
+    },
+  });
+
+  const mitm_server = await StartHttpMitm({
+    start_params: {
+      host: "127.0.0.1",
+      listen_port: 0,
+      https_agent: new https.Agent({ rejectUnauthorized: false }),
+      certificates: {
+        root_ca: { storage: "memory" },
+        leaf_certificates: {
+          storage: "memory",
+          wildcard: "registrable_domain",
+        },
+      },
+    },
+  });
+
+  try {
+    const first_response = await SendHttpsConnectRequestViaProxy({
+      proxy_port: mitm_server.listen_port,
+      target_port: upstream_server.port,
+      ca_cert_pem: mitm_server.ca.cert_pem,
+      connect_host: "api.example.com",
+      servername: "api.example.com",
+      request_host: "127.0.0.1",
+      path: "/wildcard-one",
+    });
+    const second_response = await SendHttpsConnectRequestViaProxy({
+      proxy_port: mitm_server.listen_port,
+      target_port: upstream_server.port,
+      ca_cert_pem: mitm_server.ca.cert_pem,
+      connect_host: "www.example.com",
+      servername: "www.example.com",
+      request_host: "127.0.0.1",
+      path: "/wildcard-two",
+    });
+
+    assert.match(first_response.body, /wildcard-upstream/);
+    assert.match(second_response.body, /wildcard-upstream/);
+    assert.deepEqual(
+      [...mitm_server.proxy.ca.leafCache.keys()],
+      ["wildcard:example.com"]
+    );
+  } finally {
+    await mitm_server.close();
+    await CloseHttpServer({ server: upstream_server.server });
+  }
+});
+
+test("HTTPS memory leaf certificates use exact-host fallback for localhost and IP hosts", async () => {
+  const upstream_server = await StartHttpsServer({
+    handler: async (_request, response) => {
+      response.writeHead(200, { "content-type": "text/plain" });
+      response.end("exact-fallback-upstream");
+    },
+  });
+
+  const mitm_server = await StartHttpMitm({
+    start_params: {
+      host: "127.0.0.1",
+      listen_port: 0,
+      https_agent: new https.Agent({ rejectUnauthorized: false }),
+      certificates: {
+        root_ca: { storage: "memory" },
+        leaf_certificates: {
+          storage: "memory",
+          wildcard: "registrable_domain",
+        },
+      },
+    },
+  });
+
+  try {
+    await SendHttpsConnectRequestViaProxy({
+      proxy_port: mitm_server.listen_port,
+      target_port: upstream_server.port,
+      ca_cert_pem: mitm_server.ca.cert_pem,
+      connect_host: "localhost",
+      servername: "localhost",
+      request_host: "127.0.0.1",
+      path: "/localhost",
+    });
+    await SendHttpsConnectRequestViaProxy({
+      proxy_port: mitm_server.listen_port,
+      target_port: upstream_server.port,
+      ca_cert_pem: mitm_server.ca.cert_pem,
+      connect_host: "127.0.0.1",
+      servername: "127.0.0.1",
+      request_host: "127.0.0.1",
+      path: "/ip",
+    });
+
+    assert.deepEqual(
+      [...mitm_server.proxy.ca.leafCache.keys()].sort(),
+      ["host:127.0.0.1", "host:localhost"]
+    );
+  } finally {
+    await mitm_server.close();
+    await CloseHttpServer({ server: upstream_server.server });
+  }
+});
+
+test("HTTPS memory leaf cache enforces TTL and LRU limits", async () => {
+  const upstream_server = await StartHttpsServer({
+    handler: async (_request, response) => {
+      response.writeHead(200, { "content-type": "text/plain" });
+      response.end("cache-upstream");
+    },
+  });
+
+  const mitm_server = await StartHttpMitm({
+    start_params: {
+      host: "127.0.0.1",
+      listen_port: 0,
+      https_agent: new https.Agent({ rejectUnauthorized: false }),
+      certificates: {
+        root_ca: { storage: "memory" },
+        leaf_certificates: {
+          storage: "memory",
+          wildcard: "exact_host",
+          cache: { max_entries: 1, ttl_ms: 1 },
+        },
+      },
+    },
+  });
+
+  try {
+    await SendHttpsConnectRequestViaProxy({
+      proxy_port: mitm_server.listen_port,
+      target_port: upstream_server.port,
+      ca_cert_pem: mitm_server.ca.cert_pem,
+      connect_host: "first.example.com",
+      servername: "first.example.com",
+      request_host: "127.0.0.1",
+      path: "/first",
+    });
+    const first_cert_pem = mitm_server.proxy.ca.leafCache.get(
+      "host:first.example.com"
+    ).certPem;
+
+    await CloseGeneratedSslServers({ proxy: mitm_server.proxy });
+    await Delay({ ms: 5 });
+    await SendHttpsConnectRequestViaProxy({
+      proxy_port: mitm_server.listen_port,
+      target_port: upstream_server.port,
+      ca_cert_pem: mitm_server.ca.cert_pem,
+      connect_host: "first.example.com",
+      servername: "first.example.com",
+      request_host: "127.0.0.1",
+      path: "/first-again",
+    });
+    const regenerated_cert_pem = mitm_server.proxy.ca.leafCache.get(
+      "host:first.example.com"
+    ).certPem;
+    assert.notEqual(regenerated_cert_pem, first_cert_pem);
+
+    await SendHttpsConnectRequestViaProxy({
+      proxy_port: mitm_server.listen_port,
+      target_port: upstream_server.port,
+      ca_cert_pem: mitm_server.ca.cert_pem,
+      connect_host: "second.example.com",
+      servername: "second.example.com",
+      request_host: "127.0.0.1",
+      path: "/second",
+    });
+    assert.deepEqual([...mitm_server.proxy.ca.leafCache.keys()], [
+      "host:second.example.com",
+    ]);
+  } finally {
+    await mitm_server.close();
+    await CloseHttpServer({ server: upstream_server.server });
+  }
+});
+
+test("HTTPS concurrent memory leaf requests generate one certificate per cache key", async () => {
+  const upstream_server = await StartHttpsServer({
+    handler: async (_request, response) => {
+      response.writeHead(200, { "content-type": "text/plain" });
+      response.end("race-upstream");
+    },
+  });
+
+  const mitm_server = await StartHttpMitm({
+    start_params: {
+      host: "127.0.0.1",
+      listen_port: 0,
+      https_agent: new https.Agent({ rejectUnauthorized: false }),
+      certificates: {
+        root_ca: { storage: "memory" },
+        leaf_certificates: {
+          storage: "memory",
+          wildcard: "exact_host",
+        },
+      },
+    },
+  });
+
+  const original_generate = mitm_server.proxy.ca.generateServerCertificateKeys.bind(
+    mitm_server.proxy.ca
+  ) as (...args: any[]) => unknown;
+  let generate_count = 0;
+  mitm_server.proxy.ca.generateServerCertificateKeys = (...args: any[]) => {
+    generate_count += 1;
+    return original_generate(...args);
+  };
+
+  try {
+    const request_params = {
+      proxy_port: mitm_server.listen_port,
+      target_port: upstream_server.port,
+      ca_cert_pem: mitm_server.ca.cert_pem,
+      connect_host: "race.example.com",
+      servername: "race.example.com",
+      request_host: "127.0.0.1",
+      path: "/race",
+    };
+    await Promise.all([
+      SendHttpsConnectRequestViaProxy(request_params),
+      SendHttpsConnectRequestViaProxy(request_params),
+    ]);
+
+    assert.equal(generate_count, 1);
+    assert.deepEqual([...mitm_server.proxy.ca.leafCache.keys()], [
+      "host:race.example.com",
+    ]);
   } finally {
     await mitm_server.close();
     await CloseHttpServer({ server: upstream_server.server });
