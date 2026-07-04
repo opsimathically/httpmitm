@@ -42,8 +42,6 @@ export type httpmitm_limits_t = {
   websocket_frame_bytes?: number;
   /** Maximum interception callback runtime in milliseconds. Default: 30_000. */
   callback_timeout_ms?: number;
-  /** Maximum external binary transform runtime in milliseconds. Default: 5_000. */
-  binary_transform_timeout_ms?: number;
 };
 
 /** Structured metadata passed to optional logger methods. */
@@ -56,7 +54,7 @@ export type httpmitm_log_metadata_t = Record<
  * Optional structured logger. The default logger is silent.
  *
  * HTTPMITM uses logger methods for diagnostics such as limit violations,
- * callback timeouts, and binary transform failures.
+ * callback timeouts, and content-decoding failures.
  */
 export type httpmitm_logger_t = {
   debug?: (message: string, metadata?: httpmitm_log_metadata_t) => void;

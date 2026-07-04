@@ -16,7 +16,7 @@
 - Complete: concurrent delayed callbacks without cross-request leakage.
 - Complete: request and response body limit enforcement.
 - Complete: HTTP and WebSocket callback timeout enforcement.
-- Complete: missing zstd binary behavior.
+- Complete: native zstd behavior without external binary access.
 - Complete: unsupported and corrupt content-encoding passthrough behavior.
 - Complete: WebSocket oversized frame and timeout paths.
 - Complete: awaited `stop()` and immediate port reuse.

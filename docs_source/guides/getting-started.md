@@ -6,7 +6,7 @@
 npm install @opsimathically/httpmitm
 ```
 
-`@opsimathically/httpmitm` supports Node.js `>=20` and publishes CommonJS, ESM, TypeScript declarations, and source maps.
+`@opsimathically/httpmitm` supports Node.js `>=26` and publishes CommonJS, ESM, TypeScript declarations, and source maps.
 
 ## Import
 

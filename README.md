@@ -6,9 +6,9 @@ Use this package only for traffic you own or are explicitly authorized to inspec
 
 ## Requirements
 
-- Node.js `>=20`
+- Node.js `>=26`
 - npm package outputs: CommonJS, ESM, TypeScript declarations, and source maps
-- Optional `zstd` binary on `PATH` for `content-encoding: zstd`
+- Built-in Node.js zlib support for `content-encoding: zstd`
 
 ## Install
 
@@ -237,7 +237,6 @@ HTTPMITM buffers full request bodies, response bodies, and WebSocket frames when
 | `limits.response_body_bytes` | `25 MiB` | Maximum buffered HTTP response body |
 | `limits.websocket_frame_bytes` | `16 MiB` | Maximum WebSocket frame payload |
 | `limits.callback_timeout_ms` | `30_000` | Maximum callback execution time |
-| `limits.binary_transform_timeout_ms` | `5_000` | Maximum external transform time, including zstd |
 
 Invalid or non-positive limit values fall back to defaults. Limit violations terminate the affected connection and emit a structured `logger.warn` diagnostic when a logger is configured. The default logger is silent.
 
@@ -249,7 +248,6 @@ await httpmitm.start({
     response_body_bytes: 10 * 1024 * 1024,
     websocket_frame_bytes: 4 * 1024 * 1024,
     callback_timeout_ms: 10_000,
-    binary_transform_timeout_ms: 2_500,
   },
   logger: {
     warn: (message, metadata) => console.warn(message, metadata),
@@ -260,7 +258,7 @@ await httpmitm.start({
 
 ## zstd Support
 
-`content-encoding: zstd` support shells out to the local `zstd` binary. If `zstd` is missing, times out, exits with an error, or produces too much output, callbacks receive the original bytes and a `decode_error` or encode failure path. Install `zstd` on hosts that need to inspect or modify zstd-compressed payloads.
+`content-encoding: zstd` support uses Node.js 26's built-in `node:zlib` Zstandard APIs. No external `zstd` executable is required. zstd compression and decompression run through Node's native zlib bindings and libuv threadpool; corrupt zstd payloads are surfaced through `decode_error` or encode failure paths without crashing the proxy.
 
 ## Lifecycle
 
@@ -320,5 +318,5 @@ Generated `docs/` output is kept in the repository for readers but is not includ
 - Body or frame is terminated: raise the matching limit after confirming memory capacity and expected payload sizes.
 - HTTPS client rejects certificates: trust `ssl_ca_dir/certs/ca.pem` for disk-backed root CA mode, or `server.ca.cert_pem` for memory-backed root CA mode.
 - Upstream self-signed TLS fails: pass `https_agent` with the upstream trust policy you need.
-- zstd payloads are not decoded: install the `zstd` binary and ensure it is on `PATH`.
+- zstd payloads are not decoded: confirm the process is running on Node.js `>=26` and inspect `context.decode_error` for corrupt payload details.
 - Corrupt or unsupported `Content-Encoding`: inspect `context.decode_error`; passthrough forwards original bytes.

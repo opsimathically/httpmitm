@@ -2,12 +2,12 @@
 
 ## Current Goal
 
-Prepare `@opsimathically/httpmitm` for a public npm production release on Node.js 20+ without adding GitHub workflow files.
+Prepare `@opsimathically/httpmitm` for a public npm production release on Node.js 26+ without adding GitHub workflow files.
 
 ## Current Status
 
 - Release blockers addressed: build, declarations, package metadata, local gates, package smoke test.
-- Runtime hardening added: limits, callback timeout, logger, async zstd transform, awaited shutdown.
+- Runtime hardening added: limits, callback timeout, logger, native Node.js zstd transform, awaited shutdown.
 - Test suite expanded from 18 to 33 e2e tests.
 - Production audit passes with zero known production vulnerabilities.
 - Opt-in local benchmark suite added under `benchmarks/`; it is intentionally separate from `npm run verify`.
@@ -22,7 +22,7 @@ Prepare `@opsimathically/httpmitm` for a public npm production release on Node.j
 
 ## Active Assumptions
 
-- Node.js support baseline is `>=20`.
+- Node.js support baseline is `>=26`.
 - This is a public npm package, not a hosted proxy service.
 - Breaking changes are allowed when they improve safety, typing, or release correctness.
 - CI/GitHub workflow files are out of scope; all gates are local npm scripts.

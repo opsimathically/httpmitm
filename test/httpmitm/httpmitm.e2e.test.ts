@@ -1,5 +1,4 @@
 import assert from 'node:assert';
-import { spawnSync } from 'node:child_process';
 import { once } from 'node:events';
 import { existsSync, readFileSync } from 'node:fs';
 import http, { type IncomingMessage, type ServerResponse } from 'node:http';
@@ -15,7 +14,9 @@ import {
   deflateSync,
   gunzipSync,
   gzipSync,
-  inflateSync
+  inflateSync,
+  zstdCompressSync,
+  zstdDecompressSync
 } from 'node:zlib';
 import Forge from 'node-forge';
 import WebSocket, { WebSocketServer } from 'ws';
@@ -40,29 +41,162 @@ type http_proxy_request_result_t = {
   body: string;
 };
 
-function RunBinaryTransform(params: {
-  command: string;
-  args: string[];
-  input_data: Buffer;
-}): Buffer {
-  const result = spawnSync(params.command, params.args, {
-    input: params.input_data,
-    encoding: null,
-    maxBuffer: 16 * 1024 * 1024
-  });
-  if (result.error) {
-    throw result.error;
-  }
-  if (typeof result.status === 'number' && result.status !== 0) {
-    throw new Error((result.stderr || Buffer.alloc(0)).toString('utf8'));
-  }
-  return (result.stdout || Buffer.alloc(0)) as Buffer;
-}
-
 function Delay(params: { ms: number }): Promise<void> {
   return new Promise((resolve) => {
     setTimeout(resolve, params.ms);
   });
+}
+
+async function WithTimeout<T>(params: {
+  promise: Promise<T>;
+  label: string;
+  timeout_ms?: number;
+}): Promise<T> {
+  let timeout: NodeJS.Timeout | undefined;
+  try {
+    return await Promise.race([
+      params.promise,
+      new Promise<never>((_resolve, reject) => {
+        timeout = setTimeout(
+          () => reject(new Error(`${params.label} timed out.`)),
+          params.timeout_ms || 5000
+        );
+      })
+    ]);
+  } finally {
+    if (timeout) {
+      clearTimeout(timeout);
+    }
+  }
+}
+
+class LsbBitReaderForTest {
+  private input_data: Buffer;
+  private input_index = 0;
+  private bit_buffer = 0;
+  private bit_count = 0;
+
+  constructor(params: { input_data: Buffer }) {
+    this.input_data = params.input_data;
+  }
+
+  readCode(params: { bit_width: number }): number | null {
+    while (this.bit_count < params.bit_width) {
+      if (this.input_index >= this.input_data.length) {
+        return null;
+      }
+      this.bit_buffer |= this.input_data[this.input_index] << this.bit_count;
+      this.input_index += 1;
+      this.bit_count += 8;
+    }
+
+    const mask = (1 << params.bit_width) - 1;
+    const code = this.bit_buffer & mask;
+    this.bit_buffer >>>= params.bit_width;
+    this.bit_count -= params.bit_width;
+    return code;
+  }
+}
+
+function DecodeUnixCompressForTest(params: { encoded_data: Buffer }): Buffer {
+  assert.ok(params.encoded_data.length >= 3);
+  assert.equal(params.encoded_data[0], 0x1f);
+  assert.equal(params.encoded_data[1], 0x9d);
+
+  const flags = params.encoded_data[2];
+  const block_mode = (flags & 0x80) !== 0;
+  const max_bits = flags & 0x1f;
+  assert.ok(max_bits >= 9 && max_bits <= 16);
+
+  const max_code_value = 1 << max_bits;
+  const clear_code = 256;
+  let next_code = block_mode ? clear_code + 1 : 256;
+  let bit_width = 9;
+  let max_code_for_width = (1 << bit_width) - 1;
+
+  const prefix = new Int32Array(max_code_value);
+  const suffix = new Uint8Array(max_code_value);
+  prefix.fill(-1);
+  for (let code = 0; code < 256; code += 1) {
+    suffix[code] = code;
+  }
+
+  const reader = new LsbBitReaderForTest({
+    input_data: params.encoded_data.subarray(3)
+  });
+  const first_code = reader.readCode({ bit_width });
+  if (first_code === null) {
+    return Buffer.alloc(0);
+  }
+  assert.ok(first_code <= 255);
+
+  const output_bytes: number[] = [first_code];
+  let previous_code = first_code;
+  let previous_first_byte = first_code;
+  const decode_stack = new Uint8Array(max_code_value);
+
+  while (true) {
+    const current_code_value = reader.readCode({ bit_width });
+    if (current_code_value === null) {
+      break;
+    }
+
+    if (block_mode && current_code_value === clear_code) {
+      bit_width = 9;
+      max_code_for_width = (1 << bit_width) - 1;
+      next_code = clear_code + 1;
+      const reset_code = reader.readCode({ bit_width });
+      if (reset_code === null) {
+        break;
+      }
+      assert.ok(reset_code <= 255);
+      output_bytes.push(reset_code);
+      previous_code = reset_code;
+      previous_first_byte = reset_code;
+      continue;
+    }
+
+    let current_code = current_code_value;
+    let stack_length = 0;
+
+    if (current_code >= next_code) {
+      decode_stack[stack_length] = previous_first_byte;
+      stack_length += 1;
+      current_code = previous_code;
+    }
+
+    while (current_code > 255) {
+      assert.ok(current_code < max_code_value);
+      assert.ok(prefix[current_code] >= 0);
+      decode_stack[stack_length] = suffix[current_code];
+      stack_length += 1;
+      current_code = prefix[current_code];
+    }
+
+    const first_decoded_byte = current_code;
+    decode_stack[stack_length] = first_decoded_byte;
+    stack_length += 1;
+
+    for (let index = stack_length - 1; index >= 0; index -= 1) {
+      output_bytes.push(decode_stack[index]);
+    }
+
+    if (next_code < max_code_value) {
+      prefix[next_code] = previous_code;
+      suffix[next_code] = first_decoded_byte;
+      next_code += 1;
+
+      if (next_code > max_code_for_width && bit_width < max_bits) {
+        bit_width += 1;
+        max_code_for_width = (1 << bit_width) - 1;
+      }
+    }
+
+    previous_code = current_code_value;
+    previous_first_byte = first_decoded_byte;
+  }
+
+  return Buffer.from(output_bytes);
 }
 
 async function StartHttpServer(params: {
@@ -83,7 +217,25 @@ async function CloseHttpServer(params: {
   server: http.Server | https.Server;
 }): Promise<void> {
   await new Promise<void>((resolve) => {
-    params.server.close(() => resolve());
+    let resolved = false;
+    const finish = () => {
+      if (resolved) {
+        return;
+      }
+      resolved = true;
+      clearTimeout(timeout);
+      resolve();
+    };
+    const timeout = setTimeout(() => {
+      params.server.closeAllConnections?.();
+      params.server.closeIdleConnections?.();
+      finish();
+    }, 5000);
+    params.server.close(() => finish());
+    setImmediate(() => {
+      params.server.closeIdleConnections?.();
+      params.server.closeAllConnections?.();
+    });
   });
 }
 
@@ -139,13 +291,23 @@ async function SendHttpsConnectRequestViaProxy(params: {
   path: string;
 }): Promise<http_proxy_request_result_t> {
   const connect_host = params.connect_host || 'localhost';
-  const servername = params.servername || connect_host;
+  const requested_servername = params.servername || connect_host;
+  const servername = net.isIP(requested_servername)
+    ? undefined
+    : requested_servername;
+  const check_server_identity = net.isIP(requested_servername)
+    ? (_host: string, cert: tls.PeerCertificate) =>
+        tls.checkServerIdentity(requested_servername, cert)
+    : undefined;
   const request_host = params.request_host || 'localhost';
   const socket = net.connect({
     host: '127.0.0.1',
     port: params.proxy_port
   });
-  await once(socket, 'connect');
+  await WithTimeout({
+    promise: once(socket, 'connect'),
+    label: `CONNECT socket to proxy for ${connect_host}`
+  });
 
   socket.write(
     [
@@ -158,12 +320,15 @@ async function SendHttpsConnectRequestViaProxy(params: {
 
   let connect_response = Buffer.alloc(0);
   while (!connect_response.includes(Buffer.from('\r\n\r\n'))) {
-    const [chunk] = (await once(socket, 'data')) as [Buffer];
+    const [chunk] = (await WithTimeout({
+      promise: once(socket, 'data'),
+      label: `CONNECT response for ${connect_host}`
+    })) as [Buffer];
     connect_response = Buffer.concat([connect_response, chunk]);
   }
   assert.match(connect_response.toString('utf8'), /^HTTP\/1\.1 200 OK/);
 
-  const tls_socket = tls.connect({
+  const tls_options: tls.ConnectionOptions = {
     socket,
     servername,
     ca:
@@ -171,8 +336,15 @@ async function SendHttpsConnectRequestViaProxy(params: {
         ? Buffer.from(params.ca_cert_pem)
         : readFileSync(params.ca_cert_path || ''),
     rejectUnauthorized: true
+  };
+  if (check_server_identity) {
+    tls_options.checkServerIdentity = check_server_identity;
+  }
+  const tls_socket = tls.connect(tls_options);
+  await WithTimeout({
+    promise: once(tls_socket, 'secureConnect'),
+    label: `TLS secureConnect for ${requested_servername}`
   });
-  await once(tls_socket, 'secureConnect');
 
   tls_socket.write(
     [
@@ -188,7 +360,10 @@ async function SendHttpsConnectRequestViaProxy(params: {
   tls_socket.on('data', (chunk) => {
     response_chunks.push(Buffer.from(chunk));
   });
-  await once(tls_socket, 'end');
+  await WithTimeout({
+    promise: once(tls_socket, 'end'),
+    label: `TLS response end for ${requested_servername}`
+  });
 
   const raw_response = Buffer.concat(response_chunks);
   const response_text = raw_response.toString('utf8');
@@ -741,11 +916,9 @@ test('HTTP responseData supports x-gzip and x-deflate aliases', async () => {
 test('HTTP responseData supports zstd encoding decode and re-encode', async () => {
   const upstream_server = await StartHttpServer({
     handler: async (_request, response) => {
-      const encoded_body = RunBinaryTransform({
-        command: 'zstd',
-        args: ['-q', '-c', '--no-progress'],
-        input_data: Buffer.from('zstd-upstream-body', 'utf8')
-      });
+      const encoded_body = zstdCompressSync(
+        Buffer.from('zstd-upstream-body', 'utf8')
+      );
       response.writeHead(200, {
         'content-type': 'text/plain',
         'content-encoding': 'zstd',
@@ -787,11 +960,9 @@ test('HTTP responseData supports zstd encoding decode and re-encode', async () =
 
     assert.equal(callback_saw_data, 'zstd-upstream-body');
     assert.equal(response.headers['content-encoding'], 'zstd');
-    const decoded_response_body = RunBinaryTransform({
-      command: 'zstd',
-      args: ['-d', '-q', '-c', '--no-progress'],
-      input_data: response.raw_body
-    }).toString('utf8');
+    const decoded_response_body = zstdDecompressSync(response.raw_body).toString(
+      'utf8'
+    );
     assert.equal(decoded_response_body, 'zstd-modified-body');
   } finally {
     await mitm_server.close();
@@ -927,10 +1098,8 @@ test('HTTP responseData supports compress and x-compress encoding', async () => 
     assert.equal(compress_response.headers['content-encoding'], 'compress');
     assert.equal(compress_response.raw_body[0], 0x1f);
     assert.equal(compress_response.raw_body[1], 0x9d);
-    const compress_decoded = RunBinaryTransform({
-      command: 'uncompress',
-      args: ['-c'],
-      input_data: compress_response.raw_body
+    const compress_decoded = DecodeUnixCompressForTest({
+      encoded_data: compress_response.raw_body
     }).toString('utf8');
     assert.equal(compress_decoded, 'compress-modified');
 
@@ -943,10 +1112,8 @@ test('HTTP responseData supports compress and x-compress encoding', async () => 
     assert.equal(x_compress_response.headers['content-encoding'], 'x-compress');
     assert.equal(x_compress_response.raw_body[0], 0x1f);
     assert.equal(x_compress_response.raw_body[1], 0x9d);
-    const x_compress_decoded = RunBinaryTransform({
-      command: 'uncompress',
-      args: ['-c'],
-      input_data: x_compress_response.raw_body
+    const x_compress_decoded = DecodeUnixCompressForTest({
+      encoded_data: x_compress_response.raw_body
     }).toString('utf8');
     assert.equal(x_compress_decoded, 'x-compress-modified');
 
@@ -2379,31 +2546,36 @@ test('WebSocket frame limit and callback timeout terminate connections', async (
   }
 });
 
-test('zstd missing binary is surfaced as decode_error without crashing passthrough', async () => {
+test('HTTP responseData supports zstd when PATH has no external binary', async () => {
   const original_path = process.env.PATH;
   process.env.PATH = '';
 
   const upstream_server = await StartHttpServer({
     handler: async (_request, response) => {
+      const encoded_body = zstdCompressSync(
+        Buffer.from('zstd-without-path', 'utf8')
+      );
       response.writeHead(200, {
         'content-type': 'application/octet-stream',
-        'content-encoding': 'zstd'
+        'content-encoding': 'zstd',
+        'content-length': String(encoded_body.length)
       });
-      response.end('not-zstd');
+      response.end(encoded_body);
     }
   });
 
   let decode_error = '';
+  let callback_saw_data = '';
   const mitm_server = await StartHttpMitm({
     start_params: {
       host: '127.0.0.1',
       listen_port: 0,
-      ssl_ca_dir: CreateSslCaDir({ test_name: 'zstd_missing_binary' }),
-      limits: { binary_transform_timeout_ms: 20 },
+      ssl_ca_dir: CreateSslCaDir({ test_name: 'zstd_no_external_binary' }),
       http: {
         server_to_client: {
           responseData: async ({ context }) => {
             decode_error = context.decode_error || '';
+            callback_saw_data = context.data.toString('utf8');
             return { state: 'PASSTHROUGH' };
           }
         }
@@ -2416,12 +2588,16 @@ test('zstd missing binary is surfaced as decode_error without crashing passthrou
       proxy_port: mitm_server.listen_port,
       target_port: upstream_server.port,
       method: 'GET',
-      path: '/zstd-missing'
+      path: '/zstd-no-external-binary'
     });
 
     assert.equal(response.status_code, 200);
-    assert.equal(response.body, 'not-zstd');
-    assert.match(decode_error, /zstd|ENOENT/i);
+    assert.equal(decode_error, '');
+    assert.equal(callback_saw_data, 'zstd-without-path');
+    assert.equal(
+      zstdDecompressSync(response.raw_body).toString('utf8'),
+      'zstd-without-path'
+    );
   } finally {
     await mitm_server.close();
     await CloseHttpServer({ server: upstream_server.server });

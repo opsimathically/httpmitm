@@ -1,5 +1,5 @@
 import type { IncomingHttpHeaders, OutgoingHttpHeaders } from "http";
-import { spawn } from "node:child_process";
+import { promisify } from "node:util";
 import {
   brotliCompressSync,
   brotliDecompressSync,
@@ -8,7 +8,9 @@ import {
   gzipSync,
   inflateSync,
   inflateRawSync,
-} from "zlib";
+  zstdCompress,
+  zstdDecompress,
+} from "node:zlib";
 import type WebSocket from "ws";
 import { Proxy } from "../../forked_code/proxy";
 import type { IContext, IWebSocketContext } from "../../forked_code/types";
@@ -44,13 +46,15 @@ const DEFAULT_LIMITS: Required<httpmitm_limits_t> = {
   response_body_bytes: 25 * 1024 * 1024,
   websocket_frame_bytes: 16 * 1024 * 1024,
   callback_timeout_ms: 30_000,
-  binary_transform_timeout_ms: 5_000,
 };
 
 const DEFAULT_CERTIFICATE_CACHE = {
   max_entries: 1000,
   ttl_ms: 3_600_000,
 };
+
+const ZstdCompressAsync = promisify(zstdCompress);
+const ZstdDecompressAsync = promisify(zstdDecompress);
 
 type http_connection_state_t = {
   connection_started_at_ms: number;
@@ -167,10 +171,6 @@ function NormalizeLimits(params: {
     callback_timeout_ms: NormalizePositiveNumber({
       value: params.limits?.callback_timeout_ms,
       default_value: DEFAULT_LIMITS.callback_timeout_ms,
-    }),
-    binary_transform_timeout_ms: NormalizePositiveNumber({
-      value: params.limits?.binary_transform_timeout_ms,
-      default_value: DEFAULT_LIMITS.binary_transform_timeout_ms,
     }),
   };
 }
@@ -541,90 +541,6 @@ function ReadContentEncodingHeader(params: {
   return String(header_value);
 }
 
-async function RunBinaryTransform(params: {
-  command: string;
-  args: string[];
-  input_data: Buffer;
-  timeout_ms: number;
-  max_output_bytes: number;
-}): Promise<binary_transform_result_t> {
-  return await new Promise((resolve) => {
-    const child_process = spawn(params.command, params.args, {
-      stdio: ["pipe", "pipe", "pipe"],
-    });
-
-    const stdout_chunks: Buffer[] = [];
-    const stderr_chunks: Buffer[] = [];
-    let stdout_length = 0;
-    let settled = false;
-
-    const finish = (result: binary_transform_result_t) => {
-      if (settled) {
-        return;
-      }
-      settled = true;
-      clearTimeout(timeout_handle);
-      resolve(result);
-    };
-
-    const timeout_handle = setTimeout(() => {
-      child_process.kill("SIGKILL");
-      finish({
-        output_data: Buffer.alloc(0),
-        error: `${params.command} timed out after ${params.timeout_ms}ms.`,
-      });
-    }, params.timeout_ms);
-
-    child_process.on("error", (error) => {
-      finish({
-        output_data: Buffer.alloc(0),
-        error: error.message,
-      });
-    });
-
-    child_process.stdout.on("data", (chunk: Buffer) => {
-      stdout_length += chunk.length;
-      if (stdout_length > params.max_output_bytes) {
-        child_process.kill("SIGKILL");
-        finish({
-          output_data: Buffer.alloc(0),
-          error: `${params.command} exceeded max output size of ${params.max_output_bytes} bytes.`,
-        });
-        return;
-      }
-      stdout_chunks.push(Buffer.from(chunk));
-    });
-
-    child_process.stderr.on("data", (chunk: Buffer) => {
-      stderr_chunks.push(Buffer.from(chunk));
-    });
-
-    child_process.on("close", (status) => {
-      if (settled) {
-        return;
-      }
-      if (typeof status === "number" && status !== 0) {
-        finish({
-          output_data: Buffer.alloc(0),
-          error:
-            Buffer.concat(stderr_chunks).toString("utf8") || "Command failed.",
-        });
-        return;
-      }
-
-      finish({
-        output_data: Buffer.concat(stdout_chunks),
-        error: null,
-      });
-    });
-
-    child_process.stdin.on("error", () => {
-      // The child process error/close handlers resolve the transform result.
-    });
-    child_process.stdin.end(params.input_data);
-  });
-}
-
 class LsbBitWriter {
   private output_bytes: number[] = [];
   private bit_buffer = 0;
@@ -888,7 +804,6 @@ async function ApplyContentEncodingsToData(params: {
   data: Buffer;
   content_encodings: string[];
   mode: "decode" | "encode";
-  binary_transform_timeout_ms: number;
 }): Promise<{ data: Buffer; error: string | null; transformed: boolean }> {
   // HTTP applies encodings in order; decode must run the inverse order.
   const encodings =
@@ -931,24 +846,10 @@ async function ApplyContentEncodingsToData(params: {
           transformed = true;
           break;
         case "zstd": {
-          const zstd_result = await RunBinaryTransform({
-            command: "zstd",
-            args:
-              params.mode === "decode"
-                ? ["-d", "-q", "-c", "--no-progress"]
-                : ["-q", "-c", "--no-progress"],
-            input_data: current_data,
-            timeout_ms: params.binary_transform_timeout_ms,
-            max_output_bytes: Math.max(16 * 1024 * 1024, current_data.length * 8),
-          });
-          if (zstd_result.error) {
-            return {
-              data: current_data,
-              error: zstd_result.error,
-              transformed,
-            };
-          }
-          current_data = Buffer.from(zstd_result.output_data) as Buffer;
+          current_data =
+            params.mode === "decode"
+              ? Buffer.from(await ZstdDecompressAsync(current_data))
+              : Buffer.from(await ZstdCompressAsync(current_data));
           transformed = true;
           break;
         }
@@ -998,7 +899,6 @@ async function ApplyContentEncodingsToData(params: {
 async function DecodeBodyFromHeaders(params: {
   raw_data: Buffer;
   headers: IncomingHttpHeaders | OutgoingHttpHeaders | undefined;
-  binary_transform_timeout_ms: number;
 }): Promise<decoded_body_result_t> {
   const content_encoding = ReadContentEncodingHeader({ headers: params.headers });
   const content_encodings = ParseContentEncodings({ content_encoding });
@@ -1018,7 +918,6 @@ async function DecodeBodyFromHeaders(params: {
     data: params.raw_data,
     content_encodings,
     mode: "decode",
-    binary_transform_timeout_ms: params.binary_transform_timeout_ms,
   });
 
   return {
@@ -1038,7 +937,6 @@ async function DecodeBodyFromHeaders(params: {
 async function ApplyBodyToEncoding(params: {
   decoded_data: Buffer;
   content_encodings: string[];
-  binary_transform_timeout_ms: number;
 }): Promise<{ encoded_data: Buffer; encode_error: string | null }> {
   if (params.content_encodings.length === 0) {
     return {
@@ -1051,7 +949,6 @@ async function ApplyBodyToEncoding(params: {
     data: params.decoded_data,
     content_encodings: params.content_encodings,
     mode: "encode",
-    binary_transform_timeout_ms: params.binary_transform_timeout_ms,
   });
 
   return {
@@ -1716,7 +1613,6 @@ export class HTTPMITM {
     const decoded_request_body = await DecodeBodyFromHeaders({
       raw_data: request_body_raw,
       headers: request_headers,
-      binary_transform_timeout_ms: this.limits.binary_transform_timeout_ms,
     });
 
     const callback_context: http_request_data_callback_context_t = {
@@ -1801,7 +1697,6 @@ export class HTTPMITM {
         const encoded_request_body = await ApplyBodyToEncoding({
           decoded_data: decoded_body_to_send,
           content_encodings: final_content_encodings,
-          binary_transform_timeout_ms: this.limits.binary_transform_timeout_ms,
         });
         if (encoded_request_body.encode_error) {
           throw new Error(encoded_request_body.encode_error);
@@ -1914,7 +1809,6 @@ export class HTTPMITM {
     const decoded_response_body = await DecodeBodyFromHeaders({
       raw_data: response_body_raw,
       headers: response_headers,
-      binary_transform_timeout_ms: this.limits.binary_transform_timeout_ms,
     });
 
     const callback_context: http_response_data_callback_context_t = {
@@ -2002,7 +1896,6 @@ export class HTTPMITM {
         const encoded_response_body = await ApplyBodyToEncoding({
           decoded_data: decoded_body_to_send,
           content_encodings: final_content_encodings,
-          binary_transform_timeout_ms: this.limits.binary_transform_timeout_ms,
         });
         if (encoded_response_body.encode_error) {
           throw new Error(encoded_response_body.encode_error);

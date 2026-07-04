@@ -14,13 +14,12 @@ Defaults are intentionally bounded because the proxy buffers bodies and frames f
 | `limits.response_body_bytes` | `25 MiB` |
 | `limits.websocket_frame_bytes` | `16 MiB` |
 | `limits.callback_timeout_ms` | `30_000` |
-| `limits.binary_transform_timeout_ms` | `5_000` |
 
 Invalid or non-positive values fall back to defaults. Limit violations terminate the affected connection and emit a structured warning when `logger.warn` is configured.
 
 ## Logging
 
-The default logger is silent. Configure `logger` to capture diagnostics such as callback timeouts, limit violations, and binary transform failures.
+The default logger is silent. Configure `logger` to capture diagnostics such as callback timeouts, limit violations, and content-decoding failures.
 
 Logger metadata is intentionally structured and should not include full payload bodies. Treat logs as sensitive if they include URLs, headers, hostnames, or connection identifiers.
 
@@ -34,7 +33,9 @@ When `certificates` is omitted, compatibility mode uses disk-backed root CA stor
 
 ## zstd
 
-`content-encoding: zstd` requires an external `zstd` binary on `PATH`. zstd transforms run out of process and are bounded by timeout and output size. Missing or failing zstd transforms are surfaced as decode or encode failures rather than crashing the proxy.
+`content-encoding: zstd` uses Node.js 26's built-in `node:zlib` Zstandard APIs. No external `zstd` executable is required. zstd compression and decompression run through Node's native zlib bindings and libuv threadpool.
+
+Corrupt or unsupported zstd payloads are surfaced as decode or encode failures rather than crashing the proxy.
 
 ## Package Verification
 

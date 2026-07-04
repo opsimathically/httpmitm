@@ -38,9 +38,9 @@
   - Fix: enforce `callback_timeout_ms`.
   - Verification: HTTP and WebSocket timeout tests pass.
 
-- Finding: zstd transforms used synchronous child processes.
-  - Fix: use async child processes with timeout and bounded output.
-  - Verification: zstd decode/re-encode and missing-binary tests pass.
+- Finding: zstd transforms originally used child processes and depended on an external binary.
+  - Fix: use Node.js 26 native `node:zlib` Zstandard APIs.
+  - Verification: zstd decode/re-encode and no-external-binary tests pass.
 
 - Finding: HTTPS interception wrote all root and leaf certificate material to disk.
   - Fix: add configurable disk or memory root CA and leaf certificate storage with in-memory LRU/TTL leaf caching and registrable-domain wildcard reuse.

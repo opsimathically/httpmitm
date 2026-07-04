@@ -14,20 +14,19 @@
 - Default body limits are intentionally conservative for a buffering MITM proxy.
 - Increase limits only when callback code and host memory sizing are understood.
 - Callback timeout defaults to 30 seconds.
-- Binary transform timeout defaults to 5 seconds.
 - In-memory leaf certificate cache defaults to 1000 entries and 1 hour TTL.
 
 ## Logging
 
 - The default logger is silent.
-- Configure `logger` to capture limit violations, callback timeouts, and binary transform failures.
+- Configure `logger` to capture limit violations, callback timeouts, and content-decoding failures.
 - Logger metadata must not include full payload bodies.
 
 ## zstd
 
-- zstd support depends on an external `zstd` binary on `PATH`.
-- Transforms are bounded by timeout and output size.
-- Missing binary behavior must be covered by tests and documented in README.
+- zstd support uses Node.js 26 native `node:zlib` Zstandard APIs.
+- No external `zstd` binary is required.
+- Corrupt zstd payload behavior must be covered by tests and documented in README.
 
 ## Dependency Policy
 

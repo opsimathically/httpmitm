@@ -28,7 +28,7 @@ Request bodies, response bodies, and WebSocket frames are bounded. Raise the mat
 
 ## zstd Decode Failure
 
-Install `zstd` and ensure it is on `PATH`. If zstd is missing or times out, data callbacks receive original bytes and `decode_error` explains the failure.
+Confirm the process is running on Node.js `>=26`. zstd support uses built-in `node:zlib`, so no external `zstd` executable is required. Corrupt zstd payloads cause data callbacks to receive original bytes and `decode_error` explains the failure.
 
 ## Corrupt Or Unsupported Content-Encoding
 

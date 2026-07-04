@@ -8,7 +8,7 @@
 
 > **http\_interception\_result\_t** = `object`
 
-Defined in: [classes/httpmitm/httpmitm.types.ts:132](https://github.com/opsimathically/httpmitm/blob/4e9f1fda2062b9eb02e25b4928dc9b6d7c4b9f7a/src/classes/httpmitm/httpmitm.types.ts#L132)
+Defined in: [classes/httpmitm/httpmitm.types.ts:130](https://github.com/opsimathically/httpmitm/blob/11bc0beac1e739d2243eb4c7bd876900a03c12d4/src/classes/httpmitm/httpmitm.types.ts#L130)
 
 Result returned by instance-level HTTP callbacks.
 
@@ -21,7 +21,7 @@ the callback returns `state: "MODIFIED"`.
 
 > `optional` **data**: `Buffer` \| `string`
 
-Defined in: [classes/httpmitm/httpmitm.types.ts:135](https://github.com/opsimathically/httpmitm/blob/4e9f1fda2062b9eb02e25b4928dc9b6d7c4b9f7a/src/classes/httpmitm/httpmitm.types.ts#L135)
+Defined in: [classes/httpmitm/httpmitm.types.ts:133](https://github.com/opsimathically/httpmitm/blob/11bc0beac1e739d2243eb4c7bd876900a03c12d4/src/classes/httpmitm/httpmitm.types.ts#L133)
 
 ***
 
@@ -29,7 +29,7 @@ Defined in: [classes/httpmitm/httpmitm.types.ts:135](https://github.com/opsimath
 
 > `optional` **headers**: [`header_entry_t`](header_entry_t.md)[]
 
-Defined in: [classes/httpmitm/httpmitm.types.ts:134](https://github.com/opsimathically/httpmitm/blob/4e9f1fda2062b9eb02e25b4928dc9b6d7c4b9f7a/src/classes/httpmitm/httpmitm.types.ts#L134)
+Defined in: [classes/httpmitm/httpmitm.types.ts:132](https://github.com/opsimathically/httpmitm/blob/11bc0beac1e739d2243eb4c7bd876900a03c12d4/src/classes/httpmitm/httpmitm.types.ts#L132)
 
 ***
 
@@ -37,7 +37,7 @@ Defined in: [classes/httpmitm/httpmitm.types.ts:134](https://github.com/opsimath
 
 > **state**: [`interception_state_t`](interception_state_t.md)
 
-Defined in: [classes/httpmitm/httpmitm.types.ts:133](https://github.com/opsimathically/httpmitm/blob/4e9f1fda2062b9eb02e25b4928dc9b6d7c4b9f7a/src/classes/httpmitm/httpmitm.types.ts#L133)
+Defined in: [classes/httpmitm/httpmitm.types.ts:131](https://github.com/opsimathically/httpmitm/blob/11bc0beac1e739d2243eb4c7bd876900a03c12d4/src/classes/httpmitm/httpmitm.types.ts#L131)
 
 ***
 
@@ -45,7 +45,7 @@ Defined in: [classes/httpmitm/httpmitm.types.ts:133](https://github.com/opsimath
 
 > `optional` **status\_code**: `number`
 
-Defined in: [classes/httpmitm/httpmitm.types.ts:136](https://github.com/opsimathically/httpmitm/blob/4e9f1fda2062b9eb02e25b4928dc9b6d7c4b9f7a/src/classes/httpmitm/httpmitm.types.ts#L136)
+Defined in: [classes/httpmitm/httpmitm.types.ts:134](https://github.com/opsimathically/httpmitm/blob/11bc0beac1e739d2243eb4c7bd876900a03c12d4/src/classes/httpmitm/httpmitm.types.ts#L134)
 
 ***
 
@@ -53,4 +53,4 @@ Defined in: [classes/httpmitm/httpmitm.types.ts:136](https://github.com/opsimath
 
 > `optional` **status\_message**: `string`
 
-Defined in: [classes/httpmitm/httpmitm.types.ts:137](https://github.com/opsimathically/httpmitm/blob/4e9f1fda2062b9eb02e25b4928dc9b6d7c4b9f7a/src/classes/httpmitm/httpmitm.types.ts#L137)
+Defined in: [classes/httpmitm/httpmitm.types.ts:135](https://github.com/opsimathically/httpmitm/blob/11bc0beac1e739d2243eb4c7bd876900a03c12d4/src/classes/httpmitm/httpmitm.types.ts#L135)

@@ -42,7 +42,7 @@
     "interception"
   ],
   "engines": {
-    "node": ">=20"
+    "node": ">=26"
   },
   "homepage": "https://github.com/opsimathically/httpmitm",
   "devDependencies": {
@@ -71,7 +71,7 @@
     "access": "public"
   },
   "dependencies": {
-    "@types/node": "^22.20.0",
+    "@types/node": "^26.1.0",
     "@types/node-forge": "^1.3.14",
     "@types/semaphore": "^1.1.4",
     "@types/ws": "^8.18.1",

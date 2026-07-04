@@ -2,7 +2,7 @@
 
 ## Runtime Support
 
-- Supported Node.js version: `>=20`.
+- Supported Node.js version: `>=26`.
 - Published module entry points are CommonJS, ESM, and TypeScript declarations through the package exports map.
 
 ## Public Exports
@@ -21,7 +21,6 @@
 - `limits.response_body_bytes`: maximum buffered response body size. Default: `25 MiB`.
 - `limits.websocket_frame_bytes`: maximum WebSocket frame size. Default: `16 MiB`.
 - `limits.callback_timeout_ms`: maximum callback execution time. Default: `30_000`.
-- `limits.binary_transform_timeout_ms`: maximum external binary transform time. Default: `5_000`.
 - `logger`: optional structured logger with `debug`, `info`, `warn`, and `error` methods.
 - `certificates.root_ca.storage`: root CA storage backend, `disk` or `memory`. Default: `disk`.
 - `certificates.root_ca.ssl_ca_dir`: disk directory for persisted root CA material. Defaults to `ssl_ca_dir` or `.http-mitm-proxy`.
@@ -39,7 +38,7 @@
 - Plugin callbacks may additionally return `CONTINUE`.
 - Callback errors and timeouts follow `callback_error_policy`; the default remains fail-closed termination.
 - Limit violations terminate the affected connection and emit a warning diagnostic when a logger is configured.
-- zstd support requires a `zstd` binary on `PATH`; missing or timed-out transforms surface as decode/encode errors.
+- zstd support uses Node.js 26 native `node:zlib` Zstandard APIs; no external binary is required. Corrupt zstd payloads surface as decode/encode errors.
 - `stop()` and the returned server `close()` method await server shutdown.
 - Fully memory-backed certificate mode does not write root CA or leaf certificate material to disk; callers trust the returned `server.ca.cert_pem`.
 - Memory root plus disk leaf mode is supported, but disk leaf files are signed by an ephemeral process-local CA and are not durable trust material across restarts.

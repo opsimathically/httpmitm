@@ -309,10 +309,32 @@ export class Proxy implements IProxy {
         return;
       }
       await new Promise((resolve) => {
-        try {
-          server.close(() => resolve(undefined));
-        } catch {
+        let resolved = false;
+        const finish = () => {
+          if (resolved) {
+            return;
+          }
+          resolved = true;
+          clearTimeout(timeout);
           resolve(undefined);
+        };
+        const timeout = setTimeout(() => {
+          try {
+            server.closeAllConnections?.();
+            server.closeIdleConnections?.();
+          } catch {}
+          finish();
+        }, 5000);
+        try {
+          server.close(() => finish());
+          setImmediate(() => {
+            try {
+              server.closeIdleConnections?.();
+              server.closeAllConnections?.();
+            } catch {}
+          });
+        } catch {
+          finish();
         }
       });
     };
