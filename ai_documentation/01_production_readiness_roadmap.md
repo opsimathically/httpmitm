@@ -6,7 +6,7 @@
 - Complete: CommonJS, ESM, declarations, and source maps emit.
 - Complete: package uses a deterministic `files` allowlist and exports map.
 - Complete: Node.js `>=20` engine metadata and local release gates exist.
-- Complete: manual test code is type-correct and no longer breaks docs/typecheck.
+- Complete: obsolete manual test code was removed; automated tests live under `test/**/*.test.ts`.
 
 ## Phase 2: Runtime Resilience
 

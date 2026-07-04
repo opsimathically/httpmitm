@@ -21,7 +21,7 @@
 ## Type, Lint, And Docs
 
 - Finding: manual test had an invalid interception state and caused type/docs failure.
-  - Fix: make the manual sample type-correct or exclude it from release gates.
+  - Fix: remove the obsolete manual test because it was not part of automated coverage.
   - Verification: `npm run typecheck` and `npm run docs` pass.
 
 - Finding: forked proxy internals contain legacy typing suppressions.
