@@ -18,7 +18,11 @@ export default [
       parser: tseslint.parser,
       parserOptions: {
         projectService: {
-          allowDefaultProject: ['scripts/*.mjs', 'tsup.config.ts']
+          allowDefaultProject: [
+            'benchmarks/*.mjs',
+            'scripts/*.mjs',
+            'tsup.config.ts'
+          ]
         }
       },
       globals: { ...globals.browser, ...globals.node }

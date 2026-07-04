@@ -6,7 +6,7 @@
 
 # Interface: httpmitm\_plugin\_websocket\_hooks\_i
 
-Defined in: [classes/httpmitm/httpmitm.types.ts:450](https://github.com/opsimathically/httpmitm/blob/e7c5b973f6579a3a4516f03611e4775f936ef4df/src/classes/httpmitm/httpmitm.types.ts#L450)
+Defined in: [classes/httpmitm/httpmitm.types.ts:456](https://github.com/opsimathically/httpmitm/blob/4e9f1fda2062b9eb02e25b4928dc9b6d7c4b9f7a/src/classes/httpmitm/httpmitm.types.ts#L456)
 
 WebSocket hooks supported by plugins.
 
@@ -16,7 +16,7 @@ WebSocket hooks supported by plugins.
 
 > `optional` **onConnectionTerminated**: [`plugin_websocket_connection_terminated_callback_t`](../type-aliases/plugin_websocket_connection_terminated_callback_t.md)
 
-Defined in: [classes/httpmitm/httpmitm.types.ts:454](https://github.com/opsimathically/httpmitm/blob/e7c5b973f6579a3a4516f03611e4775f936ef4df/src/classes/httpmitm/httpmitm.types.ts#L454)
+Defined in: [classes/httpmitm/httpmitm.types.ts:460](https://github.com/opsimathically/httpmitm/blob/4e9f1fda2062b9eb02e25b4928dc9b6d7c4b9f7a/src/classes/httpmitm/httpmitm.types.ts#L460)
 
 ***
 
@@ -24,7 +24,7 @@ Defined in: [classes/httpmitm/httpmitm.types.ts:454](https://github.com/opsimath
 
 > `optional` **onFrameReceived**: [`plugin_websocket_frame_received_callback_t`](../type-aliases/plugin_websocket_frame_received_callback_t.md)
 
-Defined in: [classes/httpmitm/httpmitm.types.ts:453](https://github.com/opsimathically/httpmitm/blob/e7c5b973f6579a3a4516f03611e4775f936ef4df/src/classes/httpmitm/httpmitm.types.ts#L453)
+Defined in: [classes/httpmitm/httpmitm.types.ts:459](https://github.com/opsimathically/httpmitm/blob/4e9f1fda2062b9eb02e25b4928dc9b6d7c4b9f7a/src/classes/httpmitm/httpmitm.types.ts#L459)
 
 ***
 
@@ -32,7 +32,7 @@ Defined in: [classes/httpmitm/httpmitm.types.ts:453](https://github.com/opsimath
 
 > `optional` **onFrameSent**: [`plugin_websocket_frame_sent_callback_t`](../type-aliases/plugin_websocket_frame_sent_callback_t.md)
 
-Defined in: [classes/httpmitm/httpmitm.types.ts:452](https://github.com/opsimathically/httpmitm/blob/e7c5b973f6579a3a4516f03611e4775f936ef4df/src/classes/httpmitm/httpmitm.types.ts#L452)
+Defined in: [classes/httpmitm/httpmitm.types.ts:458](https://github.com/opsimathically/httpmitm/blob/4e9f1fda2062b9eb02e25b4928dc9b6d7c4b9f7a/src/classes/httpmitm/httpmitm.types.ts#L458)
 
 ***
 
@@ -40,4 +40,4 @@ Defined in: [classes/httpmitm/httpmitm.types.ts:452](https://github.com/opsimath
 
 > `optional` **onServerUpgrade**: [`plugin_websocket_server_upgrade_callback_t`](../type-aliases/plugin_websocket_server_upgrade_callback_t.md)
 
-Defined in: [classes/httpmitm/httpmitm.types.ts:451](https://github.com/opsimathically/httpmitm/blob/e7c5b973f6579a3a4516f03611e4775f936ef4df/src/classes/httpmitm/httpmitm.types.ts#L451)
+Defined in: [classes/httpmitm/httpmitm.types.ts:457](https://github.com/opsimathically/httpmitm/blob/4e9f1fda2062b9eb02e25b4928dc9b6d7c4b9f7a/src/classes/httpmitm/httpmitm.types.ts#L457)

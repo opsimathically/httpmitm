@@ -48,6 +48,8 @@ console.log(server.listen_port);
 
 Configure client software to use the proxy host and port. For default disk-backed HTTPS traffic, the client must trust `ssl_ca_dir/certs/ca.pem`. If `certificates.root_ca.storage` is `memory`, trust the returned `server.ca.cert_pem`.
 
+Default HTTPS certificate handling is compatibility-oriented: with only `ssl_ca_dir`, HTTPMITM writes the root CA and exact-host leaf certificates to disk. Configure `certificates.leaf_certificates.storage: "memory"` to avoid per-host leaf certificate files.
+
 ## Stop Cleanly
 
 Always await shutdown in tests and long-running processes. Shutdown closes the wrapped HTTP, HTTPS, WebSocket, and generated SSL servers where possible.

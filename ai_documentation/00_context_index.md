@@ -10,6 +10,7 @@ Prepare `@opsimathically/httpmitm` for a public npm production release on Node.j
 - Runtime hardening added: limits, callback timeout, logger, async zstd transform, awaited shutdown.
 - Test suite expanded from 18 to 33 e2e tests.
 - Production audit passes with zero known production vulnerabilities.
+- Opt-in local benchmark suite added under `benchmarks/`; it is intentionally separate from `npm run verify`.
 
 ## Documentation Map
 
@@ -38,3 +39,5 @@ Prepare `@opsimathically/httpmitm` for a public npm production release on Node.j
 - `npm run pack:dry`
 - `npm run smoke:package`
 - `npm run verify`
+- `npm run bench:quick`
+- `npm run bench`

@@ -8,7 +8,7 @@
 
 > **websocket\_callback\_handles\_t** = `object`
 
-Defined in: [classes/httpmitm/httpmitm.types.ts:196](https://github.com/opsimathically/httpmitm/blob/e7c5b973f6579a3a4516f03611e4775f936ef4df/src/classes/httpmitm/httpmitm.types.ts#L196)
+Defined in: [classes/httpmitm/httpmitm.types.ts:202](https://github.com/opsimathically/httpmitm/blob/4e9f1fda2062b9eb02e25b4928dc9b6d7c4b9f7a/src/classes/httpmitm/httpmitm.types.ts#L202)
 
 Low-level WebSocket handles exposed for advanced integrations.
 
@@ -18,7 +18,7 @@ Low-level WebSocket handles exposed for advanced integrations.
 
 > **client\_to\_proxy\_websocket**: `IWebSocketContext`\[`"clientToProxyWebSocket"`\]
 
-Defined in: [classes/httpmitm/httpmitm.types.ts:199](https://github.com/opsimathically/httpmitm/blob/e7c5b973f6579a3a4516f03611e4775f936ef4df/src/classes/httpmitm/httpmitm.types.ts#L199)
+Defined in: [classes/httpmitm/httpmitm.types.ts:205](https://github.com/opsimathically/httpmitm/blob/4e9f1fda2062b9eb02e25b4928dc9b6d7c4b9f7a/src/classes/httpmitm/httpmitm.types.ts#L205)
 
 ***
 
@@ -26,7 +26,7 @@ Defined in: [classes/httpmitm/httpmitm.types.ts:199](https://github.com/opsimath
 
 > **connect\_request**: `IncomingMessage` \| `undefined`
 
-Defined in: [classes/httpmitm/httpmitm.types.ts:198](https://github.com/opsimathically/httpmitm/blob/e7c5b973f6579a3a4516f03611e4775f936ef4df/src/classes/httpmitm/httpmitm.types.ts#L198)
+Defined in: [classes/httpmitm/httpmitm.types.ts:204](https://github.com/opsimathically/httpmitm/blob/4e9f1fda2062b9eb02e25b4928dc9b6d7c4b9f7a/src/classes/httpmitm/httpmitm.types.ts#L204)
 
 ***
 
@@ -34,7 +34,7 @@ Defined in: [classes/httpmitm/httpmitm.types.ts:198](https://github.com/opsimath
 
 > **proxy\_to\_server\_websocket**: `IWebSocketContext`\[`"proxyToServerWebSocket"`\]
 
-Defined in: [classes/httpmitm/httpmitm.types.ts:200](https://github.com/opsimathically/httpmitm/blob/e7c5b973f6579a3a4516f03611e4775f936ef4df/src/classes/httpmitm/httpmitm.types.ts#L200)
+Defined in: [classes/httpmitm/httpmitm.types.ts:206](https://github.com/opsimathically/httpmitm/blob/4e9f1fda2062b9eb02e25b4928dc9b6d7c4b9f7a/src/classes/httpmitm/httpmitm.types.ts#L206)
 
 ***
 
@@ -42,4 +42,4 @@ Defined in: [classes/httpmitm/httpmitm.types.ts:200](https://github.com/opsimath
 
 > **raw\_context**: `IWebSocketContext`
 
-Defined in: [classes/httpmitm/httpmitm.types.ts:197](https://github.com/opsimathically/httpmitm/blob/e7c5b973f6579a3a4516f03611e4775f936ef4df/src/classes/httpmitm/httpmitm.types.ts#L197)
+Defined in: [classes/httpmitm/httpmitm.types.ts:203](https://github.com/opsimathically/httpmitm/blob/4e9f1fda2062b9eb02e25b4928dc9b6d7c4b9f7a/src/classes/httpmitm/httpmitm.types.ts#L203)

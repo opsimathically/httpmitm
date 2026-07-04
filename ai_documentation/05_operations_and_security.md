@@ -6,6 +6,7 @@
 - Disk-backed root CA and leaf certificate storage uses `ssl_ca_dir`; production users must protect this directory like credential material.
 - Memory-backed root CA storage exposes `server.ca.cert_pem` for client trust and writes no CA material to disk.
 - Memory-backed leaf certificate storage uses an in-process LRU/TTL cache and avoids per-host leaf certificate files.
+- Memory root plus disk leaf mode is supported, but disk leaf files are signed by an ephemeral process-local CA and should not be treated as reusable trust material.
 - README must document how to trust the generated CA for disk and memory modes.
 
 ## Limits And Timeouts

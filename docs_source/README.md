@@ -12,6 +12,7 @@ The preferred public API is `HTTPMITM`. The lower-level `Proxy` export remains a
 - [WebSocket Interception](guides/websocket-interception.md): upgrade handling, frames, close events, and limits.
 - [Plugins](guides/plugins.md): deterministic plugin ordering and `CONTINUE` behavior.
 - [Operations And Security](guides/operations-and-security.md): limits, logger behavior, zstd, audit policy, and package contents.
+- [Benchmarking](guides/benchmarking.md): opt-in local performance suite and measured workloads.
 - [Troubleshooting](guides/troubleshooting.md): common runtime failures and where to look first.
 
 ## Safety Notice

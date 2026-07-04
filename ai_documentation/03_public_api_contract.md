@@ -26,7 +26,7 @@
 - `certificates.root_ca.storage`: root CA storage backend, `disk` or `memory`. Default: `disk`.
 - `certificates.root_ca.ssl_ca_dir`: disk directory for persisted root CA material. Defaults to `ssl_ca_dir` or `.http-mitm-proxy`.
 - `certificates.leaf_certificates.storage`: leaf certificate storage backend, `disk` or `memory`. Default: `disk`.
-- `certificates.leaf_certificates.wildcard`: `registrable_domain` or `exact_host`. When `certificates` is omitted entirely, legacy exact-host disk behavior is preserved.
+- `certificates.leaf_certificates.wildcard`: `registrable_domain` or `exact_host`. Default: `registrable_domain` when `certificates` is configured. When `certificates` is omitted entirely, legacy exact-host disk behavior is preserved.
 - `certificates.leaf_certificates.cache.max_entries`: in-memory leaf cache max. Default: `1000`.
 - `certificates.leaf_certificates.cache.ttl_ms`: in-memory leaf cache TTL. Default: `3_600_000`.
 
@@ -42,3 +42,4 @@
 - zstd support requires a `zstd` binary on `PATH`; missing or timed-out transforms surface as decode/encode errors.
 - `stop()` and the returned server `close()` method await server shutdown.
 - Fully memory-backed certificate mode does not write root CA or leaf certificate material to disk; callers trust the returned `server.ca.cert_pem`.
+- Memory root plus disk leaf mode is supported, but disk leaf files are signed by an ephemeral process-local CA and are not durable trust material across restarts.

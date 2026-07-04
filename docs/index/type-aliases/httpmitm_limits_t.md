@@ -8,7 +8,7 @@
 
 > **httpmitm\_limits\_t** = `object`
 
-Defined in: [classes/httpmitm/httpmitm.types.ts:36](https://github.com/opsimathically/httpmitm/blob/e7c5b973f6579a3a4516f03611e4775f936ef4df/src/classes/httpmitm/httpmitm.types.ts#L36)
+Defined in: [classes/httpmitm/httpmitm.types.ts:36](https://github.com/opsimathically/httpmitm/blob/4e9f1fda2062b9eb02e25b4928dc9b6d7c4b9f7a/src/classes/httpmitm/httpmitm.types.ts#L36)
 
 Runtime safety limits for buffered payloads and callback execution.
 
@@ -21,7 +21,7 @@ defaults documented on each field.
 
 > `optional` **binary\_transform\_timeout\_ms**: `number`
 
-Defined in: [classes/httpmitm/httpmitm.types.ts:46](https://github.com/opsimathically/httpmitm/blob/e7c5b973f6579a3a4516f03611e4775f936ef4df/src/classes/httpmitm/httpmitm.types.ts#L46)
+Defined in: [classes/httpmitm/httpmitm.types.ts:46](https://github.com/opsimathically/httpmitm/blob/4e9f1fda2062b9eb02e25b4928dc9b6d7c4b9f7a/src/classes/httpmitm/httpmitm.types.ts#L46)
 
 Maximum external binary transform runtime in milliseconds. Default: 5_000.
 
@@ -31,7 +31,7 @@ Maximum external binary transform runtime in milliseconds. Default: 5_000.
 
 > `optional` **callback\_timeout\_ms**: `number`
 
-Defined in: [classes/httpmitm/httpmitm.types.ts:44](https://github.com/opsimathically/httpmitm/blob/e7c5b973f6579a3a4516f03611e4775f936ef4df/src/classes/httpmitm/httpmitm.types.ts#L44)
+Defined in: [classes/httpmitm/httpmitm.types.ts:44](https://github.com/opsimathically/httpmitm/blob/4e9f1fda2062b9eb02e25b4928dc9b6d7c4b9f7a/src/classes/httpmitm/httpmitm.types.ts#L44)
 
 Maximum interception callback runtime in milliseconds. Default: 30_000.
 
@@ -41,7 +41,7 @@ Maximum interception callback runtime in milliseconds. Default: 30_000.
 
 > `optional` **request\_body\_bytes**: `number`
 
-Defined in: [classes/httpmitm/httpmitm.types.ts:38](https://github.com/opsimathically/httpmitm/blob/e7c5b973f6579a3a4516f03611e4775f936ef4df/src/classes/httpmitm/httpmitm.types.ts#L38)
+Defined in: [classes/httpmitm/httpmitm.types.ts:38](https://github.com/opsimathically/httpmitm/blob/4e9f1fda2062b9eb02e25b4928dc9b6d7c4b9f7a/src/classes/httpmitm/httpmitm.types.ts#L38)
 
 Maximum buffered request body. Default: 10 MiB.
 
@@ -51,7 +51,7 @@ Maximum buffered request body. Default: 10 MiB.
 
 > `optional` **response\_body\_bytes**: `number`
 
-Defined in: [classes/httpmitm/httpmitm.types.ts:40](https://github.com/opsimathically/httpmitm/blob/e7c5b973f6579a3a4516f03611e4775f936ef4df/src/classes/httpmitm/httpmitm.types.ts#L40)
+Defined in: [classes/httpmitm/httpmitm.types.ts:40](https://github.com/opsimathically/httpmitm/blob/4e9f1fda2062b9eb02e25b4928dc9b6d7c4b9f7a/src/classes/httpmitm/httpmitm.types.ts#L40)
 
 Maximum buffered response body. Default: 25 MiB.
 
@@ -61,6 +61,6 @@ Maximum buffered response body. Default: 25 MiB.
 
 > `optional` **websocket\_frame\_bytes**: `number`
 
-Defined in: [classes/httpmitm/httpmitm.types.ts:42](https://github.com/opsimathically/httpmitm/blob/e7c5b973f6579a3a4516f03611e4775f936ef4df/src/classes/httpmitm/httpmitm.types.ts#L42)
+Defined in: [classes/httpmitm/httpmitm.types.ts:42](https://github.com/opsimathically/httpmitm/blob/4e9f1fda2062b9eb02e25b4928dc9b6d7c4b9f7a/src/classes/httpmitm/httpmitm.types.ts#L42)
 
 Maximum WebSocket frame payload size. Default: 16 MiB.

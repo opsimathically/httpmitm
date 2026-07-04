@@ -6,7 +6,7 @@
 
 # Class: HTTPMITM
 
-Defined in: [classes/httpmitm/HTTPMITM.class.ts:1098](https://github.com/opsimathically/httpmitm/blob/e7c5b973f6579a3a4516f03611e4775f936ef4df/src/classes/httpmitm/HTTPMITM.class.ts#L1098)
+Defined in: [classes/httpmitm/HTTPMITM.class.ts:1098](https://github.com/opsimathically/httpmitm/blob/4e9f1fda2062b9eb02e25b4928dc9b6d7c4b9f7a/src/classes/httpmitm/HTTPMITM.class.ts#L1098)
 
 Preferred public MITM proxy wrapper.
 
@@ -21,7 +21,7 @@ returned server handle.
 
 > **new HTTPMITM**(): `HTTPMITM`
 
-Defined in: [classes/httpmitm/HTTPMITM.class.ts:1105](https://github.com/opsimathically/httpmitm/blob/e7c5b973f6579a3a4516f03611e4775f936ef4df/src/classes/httpmitm/HTTPMITM.class.ts#L1105)
+Defined in: [classes/httpmitm/HTTPMITM.class.ts:1105](https://github.com/opsimathically/httpmitm/blob/4e9f1fda2062b9eb02e25b4928dc9b6d7c4b9f7a/src/classes/httpmitm/HTTPMITM.class.ts#L1105)
 
 #### Returns
 
@@ -33,7 +33,7 @@ Defined in: [classes/httpmitm/HTTPMITM.class.ts:1105](https://github.com/opsimat
 
 > **start**(`params`): `Promise`\<[`httpmitm_server_t`](../type-aliases/httpmitm_server_t.md)\>
 
-Defined in: [classes/httpmitm/HTTPMITM.class.ts:1119](https://github.com/opsimathically/httpmitm/blob/e7c5b973f6579a3a4516f03611e4775f936ef4df/src/classes/httpmitm/HTTPMITM.class.ts#L1119)
+Defined in: [classes/httpmitm/HTTPMITM.class.ts:1119](https://github.com/opsimathically/httpmitm/blob/4e9f1fda2062b9eb02e25b4928dc9b6d7c4b9f7a/src/classes/httpmitm/HTTPMITM.class.ts#L1119)
 
 Start the proxy with the provided interception callbacks and options.
 
@@ -57,7 +57,7 @@ read the selected port from the returned `listen_port`.
 
 > **stop**(): `Promise`\<`void`\>
 
-Defined in: [classes/httpmitm/HTTPMITM.class.ts:1187](https://github.com/opsimathically/httpmitm/blob/e7c5b973f6579a3a4516f03611e4775f936ef4df/src/classes/httpmitm/HTTPMITM.class.ts#L1187)
+Defined in: [classes/httpmitm/HTTPMITM.class.ts:1187](https://github.com/opsimathically/httpmitm/blob/4e9f1fda2062b9eb02e25b4928dc9b6d7c4b9f7a/src/classes/httpmitm/HTTPMITM.class.ts#L1187)
 
 Stop the active proxy instance.
 

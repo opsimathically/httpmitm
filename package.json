@@ -1,7 +1,7 @@
 {
   "name": "@opsimathically/httpmitm",
-  "version": "0.0.1",
-  "description": "Forked version of node-http-mitm-proxy modified to strictly await before any data forwarding.",
+  "version": "0.0.2",
+  "description": "Forked version of node-http-mitm-proxy with awaited forwarding callbacks and configurable disk or memory certificate storage.",
   "main": "dist/index.js",
   "module": "dist/index.mjs",
   "types": "dist/index.d.ts",
@@ -27,6 +27,9 @@
     "audit:prod": "npm audit --omit=dev",
     "pack:dry": "npm pack --dry-run",
     "smoke:package": "node scripts/package-smoke.mjs",
+    "bench": "npm run build && node benchmarks/run-benchmarks.mjs",
+    "bench:quick": "npm run build && node benchmarks/run-benchmarks.mjs --profile quick",
+    "bench:json": "npm run build && node benchmarks/run-benchmarks.mjs --json",
     "verify": "npm run build && npm run typecheck && npm run lint && npm run docs && npm test && npm run audit:prod && npm run pack:dry && npm run smoke:package",
     "prepack": "npm run build"
   },

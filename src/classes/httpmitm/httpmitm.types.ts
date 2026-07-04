@@ -81,20 +81,26 @@ export type httpmitm_certificate_cache_options_t = {
   ttl_ms?: number;
 };
 
-/** Root CA and leaf certificate storage options. */
+/**
+ * Root CA and leaf certificate storage options.
+ *
+ * When this object is omitted, the legacy compatibility behavior is preserved:
+ * root CA and exact-host leaf certificates are stored on disk under
+ * `ssl_ca_dir` or `.http-mitm-proxy`.
+ */
 export type httpmitm_certificate_options_t = {
   root_ca?: {
     /** Root CA storage backend. Default: `disk`. */
     storage?: httpmitm_certificate_storage_t;
-    /** Disk directory for persisted root CA material. */
+    /** Disk directory for persisted root CA material. Defaults to `ssl_ca_dir` or `.http-mitm-proxy`. */
     ssl_ca_dir?: string;
   };
   leaf_certificates?: {
     /** Leaf certificate storage backend. Default: `disk`. */
     storage?: httpmitm_certificate_storage_t;
-    /** Leaf certificate identity strategy. Default: `registrable_domain` when `certificates` is configured. */
+    /** Leaf certificate identity strategy. Default: `registrable_domain` when `certificates` is configured; legacy default is `exact_host` when `certificates` is omitted. */
     wildcard?: httpmitm_leaf_certificate_wildcard_t;
-    /** In-memory leaf certificate cache options. */
+    /** In-memory leaf certificate cache options used when leaf storage is `memory`. */
     cache?: httpmitm_certificate_cache_options_t;
   };
 };

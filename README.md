@@ -191,6 +191,8 @@ const server = await httpmitm.start({
 console.log(server.ca.cert_pem);
 ```
 
+When the `certificates` object is omitted, compatibility mode stores the root CA and exact-host leaf certificates on disk. When `certificates` is provided, root and leaf storage still default to `disk`, but the leaf wildcard strategy defaults to `registrable_domain`.
+
 Recommended low-disk-churn mode persists the root CA for stable browser trust and keeps leaf certificates in memory:
 
 ```typescript
@@ -204,6 +206,8 @@ await httpmitm.start({
 ```
 
 When `certificates.leaf_certificates.wildcard` is `registrable_domain`, HTTPMITM uses Public Suffix List parsing to reuse valid wildcard leaf certificates such as `example.com` plus `*.example.com`. IP addresses, `localhost`, single-label hosts, and deeper names that a registrable-domain wildcard cannot cover fall back to exact-host certificates. A universal wildcard certificate is not supported because browsers will not accept one for arbitrary domains.
+
+Fully memory-backed root CA mode is process-local: clients must trust the returned `server.ca.cert_pem` for that running proxy instance. A memory root with disk-backed leaf certificates is supported, but those leaf files are signed by an ephemeral CA and should not be treated as reusable across process restarts.
 
 If upstream HTTPS services use private or self-signed certificates, pass an explicit upstream HTTPS agent:
 
@@ -283,6 +287,18 @@ npm run verify
 ```
 
 `npm run verify` runs build, typecheck, lint, docs generation, tests, production audit, npm pack dry-run, and package install smoke tests. Release verification is local-script based; this project intentionally does not use GitHub workflow files.
+
+## Benchmarks
+
+Benchmarks are opt-in and are not part of `npm run verify` because performance varies by machine and Node.js version.
+
+```bash
+npm run bench
+npm run bench:quick
+npm run bench:json
+```
+
+The benchmark suite measures the built package in `dist/` and covers direct HTTP baseline, HTTP proxy throughput and latency, callback overhead, buffered body memory behavior, HTTPS certificate generation and wildcard reuse, WebSocket frame rates, and start/stop lifecycle timing. See [`benchmarks/README.md`](benchmarks/README.md) for profiles, tunables, and JSON output.
 
 ## Package Contents
 

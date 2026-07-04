@@ -6,6 +6,7 @@
 
 ## Documents
 
+- [benchmarking](documents/benchmarking.md)
 - [getting-started](documents/getting-started.md)
 - [http-interception](documents/http-interception.md)
 - [https-and-ca](documents/https-and-ca.md)

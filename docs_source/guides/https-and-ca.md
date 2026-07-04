@@ -31,6 +31,8 @@ const server = await httpmitm.start({
 });
 ```
 
+When the `certificates` object is omitted, compatibility mode stores the root CA and exact-host leaf certificates on disk. When `certificates` is provided, root and leaf storage still default to `disk`, but the leaf wildcard strategy defaults to `registrable_domain`.
+
 Hybrid mode keeps browser trust stable by persisting only the root CA while keeping leaf certificates in memory.
 
 ```typescript
@@ -53,6 +55,8 @@ await httpmitm.start({
 
 `wildcard: "exact_host"` generates one leaf certificate per exact requested hostname.
 
+A memory-backed root CA is process-local. If you combine a memory root with disk-backed leaf certificates, those leaf files are signed by an ephemeral CA and should not be treated as durable across process restarts. Persist the root CA when clients need stable trust.
+
 ## Upstream TLS Trust
 
 Client trust of the generated MITM CA is separate from the proxy's trust of upstream HTTPS servers. If upstream services use private or self-signed certificates, pass an explicit `https_agent`.
@@ -74,5 +78,6 @@ Use a stricter custom CA bundle instead of `rejectUnauthorized: false` when you 
 
 - Use disk-backed root CA storage when client trust should survive process restarts.
 - Use memory leaf storage to avoid directories full of per-domain leaf certificates.
+- Prefer disk root plus memory leaf storage for long-running local browser trust with low disk churn.
 - Never commit generated CA material.
 - Remove generated CA trust from clients after local testing is complete.

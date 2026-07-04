@@ -8,7 +8,7 @@
 
 > **websocket\_interception\_result\_t** = `object`
 
-Defined in: [classes/httpmitm/httpmitm.types.ts:140](https://github.com/opsimathically/httpmitm/blob/e7c5b973f6579a3a4516f03611e4775f936ef4df/src/classes/httpmitm/httpmitm.types.ts#L140)
+Defined in: [classes/httpmitm/httpmitm.types.ts:146](https://github.com/opsimathically/httpmitm/blob/4e9f1fda2062b9eb02e25b4928dc9b6d7c4b9f7a/src/classes/httpmitm/httpmitm.types.ts#L146)
 
 Result returned by instance-level WebSocket callbacks.
 
@@ -21,7 +21,7 @@ Result returned by instance-level WebSocket callbacks.
 
 > `optional` **data**: `WebSocket.RawData` \| `string`
 
-Defined in: [classes/httpmitm/httpmitm.types.ts:143](https://github.com/opsimathically/httpmitm/blob/e7c5b973f6579a3a4516f03611e4775f936ef4df/src/classes/httpmitm/httpmitm.types.ts#L143)
+Defined in: [classes/httpmitm/httpmitm.types.ts:149](https://github.com/opsimathically/httpmitm/blob/4e9f1fda2062b9eb02e25b4928dc9b6d7c4b9f7a/src/classes/httpmitm/httpmitm.types.ts#L149)
 
 ***
 
@@ -29,7 +29,7 @@ Defined in: [classes/httpmitm/httpmitm.types.ts:143](https://github.com/opsimath
 
 > `optional` **flags**: `boolean`
 
-Defined in: [classes/httpmitm/httpmitm.types.ts:144](https://github.com/opsimathically/httpmitm/blob/e7c5b973f6579a3a4516f03611e4775f936ef4df/src/classes/httpmitm/httpmitm.types.ts#L144)
+Defined in: [classes/httpmitm/httpmitm.types.ts:150](https://github.com/opsimathically/httpmitm/blob/4e9f1fda2062b9eb02e25b4928dc9b6d7c4b9f7a/src/classes/httpmitm/httpmitm.types.ts#L150)
 
 ***
 
@@ -37,7 +37,7 @@ Defined in: [classes/httpmitm/httpmitm.types.ts:144](https://github.com/opsimath
 
 > `optional` **headers**: [`header_entry_t`](header_entry_t.md)[]
 
-Defined in: [classes/httpmitm/httpmitm.types.ts:142](https://github.com/opsimathically/httpmitm/blob/e7c5b973f6579a3a4516f03611e4775f936ef4df/src/classes/httpmitm/httpmitm.types.ts#L142)
+Defined in: [classes/httpmitm/httpmitm.types.ts:148](https://github.com/opsimathically/httpmitm/blob/4e9f1fda2062b9eb02e25b4928dc9b6d7c4b9f7a/src/classes/httpmitm/httpmitm.types.ts#L148)
 
 ***
 
@@ -45,4 +45,4 @@ Defined in: [classes/httpmitm/httpmitm.types.ts:142](https://github.com/opsimath
 
 > **state**: [`interception_state_t`](interception_state_t.md)
 
-Defined in: [classes/httpmitm/httpmitm.types.ts:141](https://github.com/opsimathically/httpmitm/blob/e7c5b973f6579a3a4516f03611e4775f936ef4df/src/classes/httpmitm/httpmitm.types.ts#L141)
+Defined in: [classes/httpmitm/httpmitm.types.ts:147](https://github.com/opsimathically/httpmitm/blob/4e9f1fda2062b9eb02e25b4928dc9b6d7c4b9f7a/src/classes/httpmitm/httpmitm.types.ts#L147)

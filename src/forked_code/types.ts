@@ -9,7 +9,7 @@ export interface IProxyStatic {
   (): IProxy;
   /** mod to pass to the use() function: Gunzip response filter (uncompress gzipped content before onResponseData and compress back after)*/
   gunzip: any;
-  /** mod to pass to the use() function: Generates wilcard certificates by default (so less certificates are generated)*/
+  /** Low-level middleware for the forked proxy's legacy wildcard certificate behavior. Prefer the `HTTPMITM` `certificates` option for new code. */
   wildcard: any;
 }
 
@@ -256,7 +256,7 @@ export interface ICallbacks {
      node-http-mitm-proxy provide some ready to use modules:
 
      Proxy.gunzip Gunzip response filter (uncompress gzipped content before onResponseData and compress back after)
-     Proxy.wildcard Generates wilcard certificates by default (so less certificates are generated) */
+     Proxy.wildcard provides the forked proxy's legacy wildcard certificate middleware. Prefer the `HTTPMITM` `certificates` option for new code. */
   use(mod: any): void;
 }
 

@@ -8,7 +8,7 @@
 
 > **http\_response\_data\_callback\_context\_t** = [`http_callback_context_base_t`](http_callback_context_base_t.md) & `object`
 
-Defined in: [classes/httpmitm/httpmitm.types.ts:259](https://github.com/opsimathically/httpmitm/blob/e7c5b973f6579a3a4516f03611e4775f936ef4df/src/classes/httpmitm/httpmitm.types.ts#L259)
+Defined in: [classes/httpmitm/httpmitm.types.ts:265](https://github.com/opsimathically/httpmitm/blob/4e9f1fda2062b9eb02e25b4928dc9b6d7c4b9f7a/src/classes/httpmitm/httpmitm.types.ts#L265)
 
 Context passed to `http.server_to_client.responseData`.
 
