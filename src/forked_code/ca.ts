@@ -8,6 +8,7 @@ import {
   createPublicKey,
   randomBytes,
   webcrypto,
+  X509Certificate as NodeX509Certificate,
 } from "node:crypto";
 import {
   BasicConstraintsExtension,
@@ -88,8 +89,26 @@ async function generateKeyPair(algorithm: certificate_key_algorithm_t) {
   );
 }
 
-function detectPrivateKeyAlgorithm(privateKeyPem: string): certificate_key_algorithm_t {
-  const privateKey = createPrivateKey(privateKeyPem);
+function createPrivateKeyFromPem(params: {
+  privateKeyPem: string;
+  privateKeyPassphrase?: string;
+}) {
+  try {
+    if (typeof params.privateKeyPassphrase === "string") {
+      return createPrivateKey({
+        key: params.privateKeyPem,
+        passphrase: params.privateKeyPassphrase,
+      });
+    }
+    return createPrivateKey(params.privateKeyPem);
+  } catch (error) {
+    throw new Error(
+      `Invalid supplied root CA private key: ${error instanceof Error ? error.message : String(error)}`
+    );
+  }
+}
+
+function detectPrivateKeyAlgorithmFromKey(privateKey): certificate_key_algorithm_t {
   if (privateKey.asymmetricKeyType === "rsa") {
     return "rsa_2048";
   }
@@ -106,13 +125,24 @@ function detectPrivateKeyAlgorithm(privateKeyPem: string): certificate_key_algor
   throw new Error(`Unsupported certificate private key type: ${privateKey.asymmetricKeyType || "unknown"}.`);
 }
 
-async function importKeyPairFromPrivatePem(params: {
+function detectPrivateKeyAlgorithm(params: {
   privateKeyPem: string;
+  privateKeyPassphrase?: string;
+}): certificate_key_algorithm_t {
+  return detectPrivateKeyAlgorithmFromKey(
+    createPrivateKeyFromPem({
+      privateKeyPem: params.privateKeyPem,
+      privateKeyPassphrase: params.privateKeyPassphrase,
+    })
+  );
+}
+
+async function importKeyPairFromPrivateKey(params: {
+  privateKey;
   algorithm: certificate_key_algorithm_t;
 }) {
-  const nodePrivateKey = createPrivateKey(params.privateKeyPem);
-  const nodePublicKey = createPublicKey(nodePrivateKey);
-  const privateKeyDer = nodePrivateKey.export({
+  const nodePublicKey = createPublicKey(params.privateKey);
+  const privateKeyDer = params.privateKey.export({
     format: "der",
     type: "pkcs8",
   });
@@ -139,6 +169,20 @@ async function importKeyPairFromPrivatePem(params: {
   };
 }
 
+async function importKeyPairFromPrivatePem(params: {
+  privateKeyPem: string;
+  privateKeyPassphrase?: string;
+  algorithm: certificate_key_algorithm_t;
+}) {
+  return await importKeyPairFromPrivateKey({
+    privateKey: createPrivateKeyFromPem({
+      privateKeyPem: params.privateKeyPem,
+      privateKeyPassphrase: params.privateKeyPassphrase,
+    }),
+    algorithm: params.algorithm,
+  });
+}
+
 async function exportPrivateKeyPem(privateKey: CryptoKey): Promise<string> {
   return pemFromDer(
     "PRIVATE KEY",
@@ -161,6 +205,48 @@ function createValidityWindow() {
   return { notBefore, notAfter };
 }
 
+function parseNodeCertificate(certPem: string) {
+  try {
+    return new NodeX509Certificate(certPem);
+  } catch (error) {
+    throw new Error(
+      `Invalid supplied root CA certificate: ${error instanceof Error ? error.message : String(error)}`
+    );
+  }
+}
+
+function validateSuppliedRootCAMaterial(params: {
+  certPem: string;
+  privateKey;
+}) {
+  const nodeCert = parseNodeCertificate(params.certPem);
+  if (!nodeCert.ca) {
+    throw new Error("Supplied root CA certificate must be a CA certificate.");
+  }
+
+  const now = Date.now();
+  const validFromMs = Date.parse(nodeCert.validFrom);
+  const validToMs = Date.parse(nodeCert.validTo);
+  if (Number.isFinite(validFromMs) && now < validFromMs) {
+    throw new Error("Supplied root CA certificate is not valid yet.");
+  }
+  if (Number.isFinite(validToMs) && now > validToMs) {
+    throw new Error("Supplied root CA certificate has expired.");
+  }
+
+  let privateKeyMatches = false;
+  try {
+    privateKeyMatches = nodeCert.checkPrivateKey(params.privateKey);
+  } catch {
+    privateKeyMatches = false;
+  }
+  if (!privateKeyMatches) {
+    throw new Error(
+      "Supplied root CA certificate public key does not match the supplied private key."
+    );
+  }
+}
+
 export class CA {
   baseCAFolder!: string;
   certsFolder!: string;
@@ -173,6 +259,7 @@ export class CA {
   rootKeyAlgorithm: certificate_key_algorithm_t = DEFAULT_ROOT_KEY_ALGORITHM;
   leafKeyAlgorithm: certificate_key_algorithm_t = DEFAULT_LEAF_KEY_ALGORITHM;
   rootKeyAlgorithmWasExplicit = false;
+  rootMaterial;
   leafCacheMaxEntries = DEFAULT_LEAF_CACHE_MAX_ENTRIES;
   leafCacheTtlMs = DEFAULT_LEAF_CACHE_TTL_MS;
   leafCache = new Map();
@@ -203,7 +290,17 @@ export class CA {
     const leafOptions = createOptions.certificates.leafCertificates || {};
     const leafCacheOptions = leafOptions.cache || {};
     const ca = new CA();
-    ca.rootStorage = rootOptions.storage || "disk";
+    ca.rootMaterial = rootOptions.material;
+    ca.rootStorage = ca.rootMaterial
+      ? rootOptions.storage || "memory"
+      : rootOptions.storage || "disk";
+    if (ca.rootMaterial && ca.rootStorage === "disk") {
+      return callback(
+        new Error(
+          'Supplied root CA material is memory-only and cannot be used with rootCA.storage "disk".'
+        )
+      );
+    }
     ca.leafStorage = leafOptions.storage || "disk";
     ca.leafWildcard = leafOptions.wildcard || "registrable_domain";
     ca.rootKeyAlgorithmWasExplicit =
@@ -240,6 +337,10 @@ export class CA {
     async.series(
       [
         (callback) => {
+          if (ca.rootMaterial) {
+            ca.loadSuppliedCA(callback);
+            return;
+          }
           if (ca.rootStorage === "memory") {
             ca.generateCA(callback);
             return;
@@ -334,6 +435,45 @@ export class CA {
     })().catch((error) => callback(error));
   }
 
+  loadSuppliedCA(callback: Function) {
+    (async () => {
+      const material = this.rootMaterial;
+      if (!material) {
+        throw new Error("Supplied root CA material is missing.");
+      }
+      const privateKey = createPrivateKeyFromPem({
+        privateKeyPem: material.privateKeyPem,
+        privateKeyPassphrase: material.privateKeyPassphrase,
+      });
+      const detectedAlgorithm = detectPrivateKeyAlgorithmFromKey(privateKey);
+      if (
+        this.rootKeyAlgorithmWasExplicit &&
+        detectedAlgorithm !== this.rootKeyAlgorithm
+      ) {
+        throw new Error(
+          `Supplied root CA key algorithm is ${detectedAlgorithm}, but ${this.rootKeyAlgorithm} was requested.`
+        );
+      }
+      validateSuppliedRootCAMaterial({
+        certPem: material.certPem,
+        privateKey,
+      });
+      this.rootKeyAlgorithm = detectedAlgorithm;
+      try {
+        this.CAcert = new X509Certificate(material.certPem);
+      } catch (error) {
+        throw new Error(
+          `Invalid supplied root CA certificate: ${error instanceof Error ? error.message : String(error)}`
+        );
+      }
+      this.CAkeys = await importKeyPairFromPrivateKey({
+        privateKey,
+        algorithm: detectedAlgorithm,
+      });
+      return callback();
+    })().catch((error) => callback(error));
+  }
+
   loadCA(callback: Function) {
     const self = this;
     async.auto(
@@ -367,7 +507,7 @@ export class CA {
         }
         (async () => {
           const detectedAlgorithm = detectPrivateKeyAlgorithm(
-            results!.keyPrivatePEM
+            { privateKeyPem: results!.keyPrivatePEM }
           );
           if (
             self.rootKeyAlgorithmWasExplicit &&

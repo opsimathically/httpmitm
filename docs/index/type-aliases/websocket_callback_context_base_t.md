@@ -8,7 +8,7 @@
 
 > **websocket\_callback\_context\_base\_t** = `object`
 
-Defined in: [classes/httpmitm/httpmitm.types.ts:295](https://github.com/opsimathically/httpmitm/blob/907fc22be15c6dd08c90d5c416ed97a5bd7082a8/src/classes/httpmitm/httpmitm.types.ts#L295)
+Defined in: [classes/httpmitm/httpmitm.types.ts:307](https://github.com/opsimathically/httpmitm/blob/77ee9556653857e9362697295c3c7ddb7f307a5c/src/classes/httpmitm/httpmitm.types.ts#L307)
 
 Shared fields present on every WebSocket callback context.
 
@@ -18,7 +18,7 @@ Shared fields present on every WebSocket callback context.
 
 > **client\_host**: `string` \| `null`
 
-Defined in: [classes/httpmitm/httpmitm.types.ts:306](https://github.com/opsimathically/httpmitm/blob/907fc22be15c6dd08c90d5c416ed97a5bd7082a8/src/classes/httpmitm/httpmitm.types.ts#L306)
+Defined in: [classes/httpmitm/httpmitm.types.ts:318](https://github.com/opsimathically/httpmitm/blob/77ee9556653857e9362697295c3c7ddb7f307a5c/src/classes/httpmitm/httpmitm.types.ts#L318)
 
 ***
 
@@ -26,7 +26,7 @@ Defined in: [classes/httpmitm/httpmitm.types.ts:306](https://github.com/opsimath
 
 > **client\_ip**: `string` \| `null`
 
-Defined in: [classes/httpmitm/httpmitm.types.ts:304](https://github.com/opsimathically/httpmitm/blob/907fc22be15c6dd08c90d5c416ed97a5bd7082a8/src/classes/httpmitm/httpmitm.types.ts#L304)
+Defined in: [classes/httpmitm/httpmitm.types.ts:316](https://github.com/opsimathically/httpmitm/blob/77ee9556653857e9362697295c3c7ddb7f307a5c/src/classes/httpmitm/httpmitm.types.ts#L316)
 
 ***
 
@@ -34,7 +34,7 @@ Defined in: [classes/httpmitm/httpmitm.types.ts:304](https://github.com/opsimath
 
 > **client\_port**: `number` \| `null`
 
-Defined in: [classes/httpmitm/httpmitm.types.ts:305](https://github.com/opsimathically/httpmitm/blob/907fc22be15c6dd08c90d5c416ed97a5bd7082a8/src/classes/httpmitm/httpmitm.types.ts#L305)
+Defined in: [classes/httpmitm/httpmitm.types.ts:317](https://github.com/opsimathically/httpmitm/blob/77ee9556653857e9362697295c3c7ddb7f307a5c/src/classes/httpmitm/httpmitm.types.ts#L317)
 
 ***
 
@@ -42,7 +42,7 @@ Defined in: [classes/httpmitm/httpmitm.types.ts:305](https://github.com/opsimath
 
 > **connection\_id**: `string`
 
-Defined in: [classes/httpmitm/httpmitm.types.ts:296](https://github.com/opsimathically/httpmitm/blob/907fc22be15c6dd08c90d5c416ed97a5bd7082a8/src/classes/httpmitm/httpmitm.types.ts#L296)
+Defined in: [classes/httpmitm/httpmitm.types.ts:308](https://github.com/opsimathically/httpmitm/blob/77ee9556653857e9362697295c3c7ddb7f307a5c/src/classes/httpmitm/httpmitm.types.ts#L308)
 
 ***
 
@@ -50,7 +50,7 @@ Defined in: [classes/httpmitm/httpmitm.types.ts:296](https://github.com/opsimath
 
 > **connection\_started\_at\_ms**: `number`
 
-Defined in: [classes/httpmitm/httpmitm.types.ts:297](https://github.com/opsimathically/httpmitm/blob/907fc22be15c6dd08c90d5c416ed97a5bd7082a8/src/classes/httpmitm/httpmitm.types.ts#L297)
+Defined in: [classes/httpmitm/httpmitm.types.ts:309](https://github.com/opsimathically/httpmitm/blob/77ee9556653857e9362697295c3c7ddb7f307a5c/src/classes/httpmitm/httpmitm.types.ts#L309)
 
 ***
 
@@ -58,7 +58,7 @@ Defined in: [classes/httpmitm/httpmitm.types.ts:297](https://github.com/opsimath
 
 > **handles**: [`websocket_callback_handles_t`](websocket_callback_handles_t.md)
 
-Defined in: [classes/httpmitm/httpmitm.types.ts:307](https://github.com/opsimathically/httpmitm/blob/907fc22be15c6dd08c90d5c416ed97a5bd7082a8/src/classes/httpmitm/httpmitm.types.ts#L307)
+Defined in: [classes/httpmitm/httpmitm.types.ts:319](https://github.com/opsimathically/httpmitm/blob/77ee9556653857e9362697295c3c7ddb7f307a5c/src/classes/httpmitm/httpmitm.types.ts#L319)
 
 ***
 
@@ -66,7 +66,7 @@ Defined in: [classes/httpmitm/httpmitm.types.ts:307](https://github.com/opsimath
 
 > **intercepted\_at\_ms**: `number`
 
-Defined in: [classes/httpmitm/httpmitm.types.ts:298](https://github.com/opsimathically/httpmitm/blob/907fc22be15c6dd08c90d5c416ed97a5bd7082a8/src/classes/httpmitm/httpmitm.types.ts#L298)
+Defined in: [classes/httpmitm/httpmitm.types.ts:310](https://github.com/opsimathically/httpmitm/blob/77ee9556653857e9362697295c3c7ddb7f307a5c/src/classes/httpmitm/httpmitm.types.ts#L310)
 
 ***
 
@@ -74,7 +74,7 @@ Defined in: [classes/httpmitm/httpmitm.types.ts:298](https://github.com/opsimath
 
 > **is\_ssl**: `boolean`
 
-Defined in: [classes/httpmitm/httpmitm.types.ts:300](https://github.com/opsimathically/httpmitm/blob/907fc22be15c6dd08c90d5c416ed97a5bd7082a8/src/classes/httpmitm/httpmitm.types.ts#L300)
+Defined in: [classes/httpmitm/httpmitm.types.ts:312](https://github.com/opsimathically/httpmitm/blob/77ee9556653857e9362697295c3c7ddb7f307a5c/src/classes/httpmitm/httpmitm.types.ts#L312)
 
 ***
 
@@ -82,7 +82,7 @@ Defined in: [classes/httpmitm/httpmitm.types.ts:300](https://github.com/opsimath
 
 > **protocol**: `"websocket"`
 
-Defined in: [classes/httpmitm/httpmitm.types.ts:299](https://github.com/opsimathically/httpmitm/blob/907fc22be15c6dd08c90d5c416ed97a5bd7082a8/src/classes/httpmitm/httpmitm.types.ts#L299)
+Defined in: [classes/httpmitm/httpmitm.types.ts:311](https://github.com/opsimathically/httpmitm/blob/77ee9556653857e9362697295c3c7ddb7f307a5c/src/classes/httpmitm/httpmitm.types.ts#L311)
 
 ***
 
@@ -90,7 +90,7 @@ Defined in: [classes/httpmitm/httpmitm.types.ts:299](https://github.com/opsimath
 
 > **remote\_host**: `string` \| `null`
 
-Defined in: [classes/httpmitm/httpmitm.types.ts:303](https://github.com/opsimathically/httpmitm/blob/907fc22be15c6dd08c90d5c416ed97a5bd7082a8/src/classes/httpmitm/httpmitm.types.ts#L303)
+Defined in: [classes/httpmitm/httpmitm.types.ts:315](https://github.com/opsimathically/httpmitm/blob/77ee9556653857e9362697295c3c7ddb7f307a5c/src/classes/httpmitm/httpmitm.types.ts#L315)
 
 ***
 
@@ -98,7 +98,7 @@ Defined in: [classes/httpmitm/httpmitm.types.ts:303](https://github.com/opsimath
 
 > **remote\_ip**: `string` \| `null`
 
-Defined in: [classes/httpmitm/httpmitm.types.ts:301](https://github.com/opsimathically/httpmitm/blob/907fc22be15c6dd08c90d5c416ed97a5bd7082a8/src/classes/httpmitm/httpmitm.types.ts#L301)
+Defined in: [classes/httpmitm/httpmitm.types.ts:313](https://github.com/opsimathically/httpmitm/blob/77ee9556653857e9362697295c3c7ddb7f307a5c/src/classes/httpmitm/httpmitm.types.ts#L313)
 
 ***
 
@@ -106,4 +106,4 @@ Defined in: [classes/httpmitm/httpmitm.types.ts:301](https://github.com/opsimath
 
 > **remote\_port**: `number` \| `null`
 
-Defined in: [classes/httpmitm/httpmitm.types.ts:302](https://github.com/opsimathically/httpmitm/blob/907fc22be15c6dd08c90d5c416ed97a5bd7082a8/src/classes/httpmitm/httpmitm.types.ts#L302)
+Defined in: [classes/httpmitm/httpmitm.types.ts:314](https://github.com/opsimathically/httpmitm/blob/77ee9556653857e9362697295c3c7ddb7f307a5c/src/classes/httpmitm/httpmitm.types.ts#L314)

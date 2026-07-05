@@ -33,6 +33,8 @@ Logger metadata is intentionally structured and should not include full payload 
 
 Root CA and leaf certificates can be disk-backed or memory-backed. Disk-backed root CA mode provides stable client trust across restarts. Memory-backed root CA mode writes no CA material to disk, but clients must trust the returned `server.ca.cert_pem` for that process.
 
+Existing root CA material can be supplied through `certificates.root_ca.material` for database-backed or secret-manager-backed trust anchors. Supplied material is memory-only: the library does not write the supplied root certificate or private key to disk, and `storage: "disk"` plus `material` is rejected. The private key is used for leaf signing and is not exposed on the returned server handle.
+
 Root CA and leaf certificates can use `rsa_2048` or `ecdsa_p256` keys. The default is RSA-2048 for the root CA and ECDSA P-256 for leaf certificates. This preserves broad root-import compatibility while reducing per-host generation cost. Explicit disk root algorithm mismatches fail during startup so an existing trust anchor is not silently replaced with a different key type.
 
 Memory leaf certificates are cached with an LRU/TTL policy. Defaults are `1000` entries and `3_600_000` milliseconds. Use memory leaf storage to avoid unbounded `ssl_ca_dir/certs` and `ssl_ca_dir/keys` growth from per-host certificates.
@@ -54,6 +56,10 @@ npm run verify
 ```
 
 It runs build, typecheck, lint, docs generation, tests, production audit, npm pack dry-run, and package install smoke tests.
+
+## Release Versioning
+
+Set the intended semver in `package.json` before publishing. The current API and runtime baseline include breaking changes compared with earlier Node 20-era builds: Node.js `>=26`, native zstd through `node:zlib`, no deprecated compatibility option surface, and ECDSA P-256 leaf certificates by default.
 
 ## Package Contents
 

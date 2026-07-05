@@ -8,4 +8,4 @@
 
 > **IProxyCertificateKeyAlgorithm** = `"rsa_2048"` \| `"ecdsa_p256"`
 
-Defined in: [forked\_code/types.ts:43](https://github.com/opsimathically/httpmitm/blob/907fc22be15c6dd08c90d5c416ed97a5bd7082a8/src/forked_code/types.ts#L43)
+Defined in: [forked\_code/types.ts:43](https://github.com/opsimathically/httpmitm/blob/77ee9556653857e9362697295c3c7ddb7f307a5c/src/forked_code/types.ts#L43)

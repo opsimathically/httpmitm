@@ -6,7 +6,7 @@
 
 # Interface: IProxyCertificateOptions
 
-Defined in: [forked\_code/types.ts:50](https://github.com/opsimathically/httpmitm/blob/907fc22be15c6dd08c90d5c416ed97a5bd7082a8/src/forked_code/types.ts#L50)
+Defined in: [forked\_code/types.ts:56](https://github.com/opsimathically/httpmitm/blob/77ee9556653857e9362697295c3c7ddb7f307a5c/src/forked_code/types.ts#L56)
 
 ## Properties
 
@@ -14,7 +14,7 @@ Defined in: [forked\_code/types.ts:50](https://github.com/opsimathically/httpmit
 
 > `optional` **leafCertificates**: `object`
 
-Defined in: [forked\_code/types.ts:56](https://github.com/opsimathically/httpmitm/blob/907fc22be15c6dd08c90d5c416ed97a5bd7082a8/src/forked_code/types.ts#L56)
+Defined in: [forked\_code/types.ts:63](https://github.com/opsimathically/httpmitm/blob/77ee9556653857e9362697295c3c7ddb7f307a5c/src/forked_code/types.ts#L63)
 
 #### cache?
 
@@ -38,11 +38,15 @@ Defined in: [forked\_code/types.ts:56](https://github.com/opsimathically/httpmit
 
 > `optional` **rootCA**: `object`
 
-Defined in: [forked\_code/types.ts:51](https://github.com/opsimathically/httpmitm/blob/907fc22be15c6dd08c90d5c416ed97a5bd7082a8/src/forked_code/types.ts#L51)
+Defined in: [forked\_code/types.ts:57](https://github.com/opsimathically/httpmitm/blob/77ee9556653857e9362697295c3c7ddb7f307a5c/src/forked_code/types.ts#L57)
 
 #### keyAlgorithm?
 
 > `optional` **keyAlgorithm**: [`IProxyCertificateKeyAlgorithm`](../type-aliases/IProxyCertificateKeyAlgorithm.md)
+
+#### material?
+
+> `optional` **material**: [`IProxyRootCAMaterial`](IProxyRootCAMaterial.md)
 
 #### sslCaDir?
 

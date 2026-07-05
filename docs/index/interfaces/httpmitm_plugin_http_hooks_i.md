@@ -6,7 +6,7 @@
 
 # Interface: httpmitm\_plugin\_http\_hooks\_i
 
-Defined in: [classes/httpmitm/httpmitm.types.ts:457](https://github.com/opsimathically/httpmitm/blob/907fc22be15c6dd08c90d5c416ed97a5bd7082a8/src/classes/httpmitm/httpmitm.types.ts#L457)
+Defined in: [classes/httpmitm/httpmitm.types.ts:469](https://github.com/opsimathically/httpmitm/blob/77ee9556653857e9362697295c3c7ddb7f307a5c/src/classes/httpmitm/httpmitm.types.ts#L469)
 
 HTTP hook groups supported by plugins.
 
@@ -16,7 +16,7 @@ HTTP hook groups supported by plugins.
 
 > `optional` **client\_to\_server**: [`httpmitm_plugin_http_hooks_client_to_server_i`](httpmitm_plugin_http_hooks_client_to_server_i.md)
 
-Defined in: [classes/httpmitm/httpmitm.types.ts:458](https://github.com/opsimathically/httpmitm/blob/907fc22be15c6dd08c90d5c416ed97a5bd7082a8/src/classes/httpmitm/httpmitm.types.ts#L458)
+Defined in: [classes/httpmitm/httpmitm.types.ts:470](https://github.com/opsimathically/httpmitm/blob/77ee9556653857e9362697295c3c7ddb7f307a5c/src/classes/httpmitm/httpmitm.types.ts#L470)
 
 ***
 
@@ -24,4 +24,4 @@ Defined in: [classes/httpmitm/httpmitm.types.ts:458](https://github.com/opsimath
 
 > `optional` **server\_to\_client**: [`httpmitm_plugin_http_hooks_server_to_client_i`](httpmitm_plugin_http_hooks_server_to_client_i.md)
 
-Defined in: [classes/httpmitm/httpmitm.types.ts:459](https://github.com/opsimathically/httpmitm/blob/907fc22be15c6dd08c90d5c416ed97a5bd7082a8/src/classes/httpmitm/httpmitm.types.ts#L459)
+Defined in: [classes/httpmitm/httpmitm.types.ts:471](https://github.com/opsimathically/httpmitm/blob/77ee9556653857e9362697295c3c7ddb7f307a5c/src/classes/httpmitm/httpmitm.types.ts#L471)

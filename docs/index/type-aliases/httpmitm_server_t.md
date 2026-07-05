@@ -8,7 +8,7 @@
 
 > **httpmitm\_server\_t** = `object`
 
-Defined in: [classes/httpmitm/httpmitm.types.ts:521](https://github.com/opsimathically/httpmitm/blob/907fc22be15c6dd08c90d5c416ed97a5bd7082a8/src/classes/httpmitm/httpmitm.types.ts#L521)
+Defined in: [classes/httpmitm/httpmitm.types.ts:533](https://github.com/opsimathically/httpmitm/blob/77ee9556653857e9362697295c3c7ddb7f307a5c/src/classes/httpmitm/httpmitm.types.ts#L533)
 
 Server handle returned by `HTTPMITM.start()`.
 
@@ -18,7 +18,7 @@ Server handle returned by `HTTPMITM.start()`.
 
 > **ca**: [`httpmitm_ca_material_t`](httpmitm_ca_material_t.md)
 
-Defined in: [classes/httpmitm/httpmitm.types.ts:529](https://github.com/opsimathically/httpmitm/blob/907fc22be15c6dd08c90d5c416ed97a5bd7082a8/src/classes/httpmitm/httpmitm.types.ts#L529)
+Defined in: [classes/httpmitm/httpmitm.types.ts:541](https://github.com/opsimathically/httpmitm/blob/77ee9556653857e9362697295c3c7ddb7f307a5c/src/classes/httpmitm/httpmitm.types.ts#L541)
 
 Root CA material for client trust.
 
@@ -28,7 +28,7 @@ Root CA material for client trust.
 
 > **close**: () => `Promise`\<`void`\>
 
-Defined in: [classes/httpmitm/httpmitm.types.ts:531](https://github.com/opsimathically/httpmitm/blob/907fc22be15c6dd08c90d5c416ed97a5bd7082a8/src/classes/httpmitm/httpmitm.types.ts#L531)
+Defined in: [classes/httpmitm/httpmitm.types.ts:543](https://github.com/opsimathically/httpmitm/blob/77ee9556653857e9362697295c3c7ddb7f307a5c/src/classes/httpmitm/httpmitm.types.ts#L543)
 
 Awaitable shutdown for all managed proxy servers.
 
@@ -42,7 +42,7 @@ Awaitable shutdown for all managed proxy servers.
 
 > **host**: `string`
 
-Defined in: [classes/httpmitm/httpmitm.types.ts:525](https://github.com/opsimathically/httpmitm/blob/907fc22be15c6dd08c90d5c416ed97a5bd7082a8/src/classes/httpmitm/httpmitm.types.ts#L525)
+Defined in: [classes/httpmitm/httpmitm.types.ts:537](https://github.com/opsimathically/httpmitm/blob/77ee9556653857e9362697295c3c7ddb7f307a5c/src/classes/httpmitm/httpmitm.types.ts#L537)
 
 Effective proxy host metadata.
 
@@ -52,7 +52,7 @@ Effective proxy host metadata.
 
 > **listen\_port**: `number`
 
-Defined in: [classes/httpmitm/httpmitm.types.ts:527](https://github.com/opsimathically/httpmitm/blob/907fc22be15c6dd08c90d5c416ed97a5bd7082a8/src/classes/httpmitm/httpmitm.types.ts#L527)
+Defined in: [classes/httpmitm/httpmitm.types.ts:539](https://github.com/opsimathically/httpmitm/blob/77ee9556653857e9362697295c3c7ddb7f307a5c/src/classes/httpmitm/httpmitm.types.ts#L539)
 
 Effective HTTP proxy listen port.
 
@@ -62,6 +62,6 @@ Effective HTTP proxy listen port.
 
 > **proxy**: [`Proxy`](../classes/Proxy.md)
 
-Defined in: [classes/httpmitm/httpmitm.types.ts:523](https://github.com/opsimathically/httpmitm/blob/907fc22be15c6dd08c90d5c416ed97a5bd7082a8/src/classes/httpmitm/httpmitm.types.ts#L523)
+Defined in: [classes/httpmitm/httpmitm.types.ts:535](https://github.com/opsimathically/httpmitm/blob/77ee9556653857e9362697295c3c7ddb7f307a5c/src/classes/httpmitm/httpmitm.types.ts#L535)
 
 Low-level forked proxy instance. Prefer `HTTPMITM` unless internals are required.

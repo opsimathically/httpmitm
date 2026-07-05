@@ -4,7 +4,7 @@ HTTPS interception accepts CONNECT traffic, presents a generated leaf certificat
 
 ## Compatibility Disk Mode
 
-The default behavior is compatible with earlier releases. If you only pass `ssl_ca_dir`, HTTPMITM persists the root CA and exact-host leaf certificates under that directory.
+The default disk storage layout is compatible with earlier releases. If you only pass `ssl_ca_dir`, HTTPMITM persists the root CA and exact-host leaf certificates under that directory.
 
 ```typescript
 await httpmitm.start({
@@ -77,6 +77,29 @@ await httpmitm.start({
 
 A memory-backed root CA is process-local. If you combine a memory root with disk-backed leaf certificates, those leaf files are signed by an ephemeral CA and should not be treated as durable across process restarts. Persist the root CA when clients need stable trust.
 
+## Supplied Root CA Material
+
+Applications that store root CA material in a database or secret manager can supply the existing certificate and private key directly from memory.
+
+```typescript
+const root_ca_from_database = await loadRootCaFromDatabase();
+
+const server = await httpmitm.start({
+  certificates: {
+    root_ca: {
+      material: {
+        cert_pem: root_ca_from_database.cert_pem,
+        private_key_pem: root_ca_from_database.private_key_pem,
+        private_key_passphrase: root_ca_from_database.private_key_passphrase,
+      },
+    },
+    leaf_certificates: { storage: "memory" },
+  },
+});
+```
+
+When `root_ca.material` is present, root CA storage defaults to `memory`. Supplied root CA material is never written to disk, and `storage: "disk"` plus `material` is rejected. The private key must match the certificate, the certificate must be a valid CA certificate, and any encrypted private key must include `private_key_passphrase` or be decrypted before startup.
+
 ## Upstream TLS Trust
 
 Client trust of the generated MITM CA is separate from the proxy's trust of upstream HTTPS servers. If upstream services use private or self-signed certificates, pass an explicit `https_agent`.
@@ -98,6 +121,7 @@ Use a stricter custom CA bundle instead of `rejectUnauthorized: false` when you 
 
 - Use disk-backed root CA storage when client trust should survive process restarts.
 - Use memory leaf storage to avoid directories full of per-domain leaf certificates.
+- Use supplied root CA material when trust anchors are stored in a database or secret manager.
 - Keep the default RSA root plus ECDSA P-256 leaves unless you have a client compatibility reason to use RSA leaves.
 - Prefer disk root plus memory leaf storage for long-running local browser trust with low disk churn.
 - Never commit generated CA material.

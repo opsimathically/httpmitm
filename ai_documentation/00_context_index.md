@@ -8,7 +8,7 @@ Prepare `@opsimathically/httpmitm` for a public npm production release on Node.j
 
 - Release blockers addressed: build, declarations, package metadata, local gates, package smoke test.
 - Runtime hardening added: limits, callback timeout, logger, native Node.js zstd transform, awaited shutdown.
-- Test suite expanded from 18 to 33 e2e tests.
+- Test suite expanded from the original 18 e2e tests to the current certificate, encoding, WebSocket, package, and lifecycle coverage.
 - Production audit passes with zero known production vulnerabilities.
 - Opt-in local benchmark suite added under `benchmarks/`; it is intentionally separate from `npm run verify`.
 
@@ -19,6 +19,7 @@ Prepare `@opsimathically/httpmitm` for a public npm production release on Node.j
 - `03_public_api_contract.md`: public package API, runtime options, and breaking changes.
 - `04_test_matrix.md`: required test coverage for release readiness.
 - `05_operations_and_security.md`: operating, security, dependency, and runtime notes.
+- `06_benchmarking.md`: local benchmark coverage, profiles, and interpretation notes.
 
 ## Active Assumptions
 

@@ -195,6 +195,11 @@ function NormalizeCertificateOptions(params: {
         storage?: "disk" | "memory";
         sslCaDir?: string;
         keyAlgorithm?: "rsa_2048" | "ecdsa_p256";
+        material?: {
+          certPem: string;
+          privateKeyPem: string;
+          privateKeyPassphrase?: string;
+        };
       };
       leafCertificates?: {
         storage?: "disk" | "memory";
@@ -213,6 +218,14 @@ function NormalizeCertificateOptions(params: {
       storage: params.certificates.root_ca?.storage,
       sslCaDir: params.certificates.root_ca?.ssl_ca_dir || params.ssl_ca_dir,
       keyAlgorithm: params.certificates.root_ca?.key_algorithm,
+      material: params.certificates.root_ca?.material
+        ? {
+            certPem: params.certificates.root_ca.material.cert_pem,
+            privateKeyPem: params.certificates.root_ca.material.private_key_pem,
+            privateKeyPassphrase:
+              params.certificates.root_ca.material.private_key_passphrase,
+          }
+        : undefined,
     },
     leafCertificates: {
       storage: params.certificates.leaf_certificates?.storage,

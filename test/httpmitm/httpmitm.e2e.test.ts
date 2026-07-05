@@ -7,7 +7,10 @@ import type { AddressInfo } from 'node:net';
 import net from 'node:net';
 import path from 'node:path';
 import tls from 'node:tls';
-import { X509Certificate as NodeX509Certificate } from 'node:crypto';
+import {
+  X509Certificate as NodeX509Certificate,
+  webcrypto
+} from 'node:crypto';
 import test from 'node:test';
 import {
   brotliCompressSync,
@@ -20,6 +23,15 @@ import {
   zstdDecompressSync
 } from 'node:zlib';
 import Forge from 'node-forge';
+import 'reflect-metadata';
+import {
+  BasicConstraintsExtension,
+  KeyUsageFlags,
+  KeyUsagesExtension,
+  SubjectKeyIdentifierExtension,
+  X509CertificateGenerator,
+  cryptoProvider
+} from '@peculiar/x509';
 import WebSocket, { WebSocketServer } from 'ws';
 
 import { HTTPMITM } from '../../src';
@@ -41,6 +53,14 @@ type http_proxy_request_result_t = {
   raw_body: Buffer;
   body: string;
 };
+
+type root_ca_material_for_test_t = {
+  cert_pem: string;
+  private_key_pem: string;
+  private_key_passphrase?: string;
+};
+
+cryptoProvider.set(webcrypto);
 
 function GetCertificatePublicKeyType(params: { cert_pem: string }): string {
   const key_type = new NodeX509Certificate(
@@ -272,6 +292,107 @@ function GenerateSelfSignedCertificate(): { key: string; cert: string } {
     key: Forge.pki.privateKeyToPem(keys.privateKey),
     cert: Forge.pki.certificateToPem(cert)
   };
+}
+
+function PemFromDerForTest(params: {
+  label: string;
+  data: ArrayBuffer;
+}): string {
+  const base64 = Buffer.from(params.data).toString('base64');
+  const lines = base64.match(/.{1,64}/g) || [];
+  return `-----BEGIN ${params.label}-----\n${lines.join('\n')}\n-----END ${params.label}-----\n`;
+}
+
+function GenerateForgeRootCaMaterial(params?: {
+  private_key_passphrase?: string;
+}): root_ca_material_for_test_t {
+  const keys = Forge.pki.rsa.generateKeyPair(2048);
+  const cert = Forge.pki.createCertificate();
+  cert.publicKey = keys.publicKey;
+  cert.serialNumber = '03';
+  cert.validity.notBefore = new Date();
+  cert.validity.notBefore.setDate(cert.validity.notBefore.getDate() - 1);
+  cert.validity.notAfter = new Date();
+  cert.validity.notAfter.setFullYear(cert.validity.notBefore.getFullYear() + 1);
+  cert.setSubject([
+    { name: 'commonName', value: 'HTTPMITM Supplied Root CA' },
+    { name: 'countryName', value: 'Internet' },
+    { shortName: 'ST', value: 'Internet' },
+    { name: 'localityName', value: 'Internet' },
+    { name: 'organizationName', value: 'HTTPMITM Test CA' },
+    { shortName: 'OU', value: 'CA' }
+  ]);
+  cert.setIssuer(cert.subject.attributes);
+  cert.setExtensions([
+    { name: 'basicConstraints', cA: true, critical: true },
+    {
+      name: 'keyUsage',
+      keyCertSign: true,
+      cRLSign: true,
+      digitalSignature: true,
+      critical: true
+    },
+    { name: 'subjectKeyIdentifier' }
+  ]);
+  cert.sign(keys.privateKey, Forge.md.sha256.create());
+
+  return {
+    cert_pem: Forge.pki.certificateToPem(cert),
+    private_key_pem:
+      typeof params?.private_key_passphrase === 'string'
+        ? Forge.pki.encryptRsaPrivateKey(
+            keys.privateKey,
+            params.private_key_passphrase
+          )
+        : Forge.pki.privateKeyToPem(keys.privateKey),
+    private_key_passphrase: params?.private_key_passphrase
+  };
+}
+
+async function GenerateEcdsaRootCaMaterial(): Promise<root_ca_material_for_test_t> {
+  const keys = await webcrypto.subtle.generateKey(
+    {
+      name: 'ECDSA',
+      namedCurve: 'P-256'
+    },
+    true,
+    ['sign', 'verify']
+  );
+  const not_before = new Date();
+  not_before.setDate(not_before.getDate() - 1);
+  const not_after = new Date();
+  not_after.setFullYear(not_before.getFullYear() + 1);
+  const cert = await X509CertificateGenerator.createSelfSigned({
+    serialNumber: randomSerialNumberForTest(),
+    name: 'CN=HTTPMITM Supplied ECDSA Root CA,C=Internet,ST=Internet,L=Internet,O=HTTPMITM Test CA,OU=CA',
+    keys,
+    notBefore: not_before,
+    notAfter: not_after,
+    extensions: [
+      new BasicConstraintsExtension(true, undefined, true),
+      new KeyUsagesExtension(
+        KeyUsageFlags.keyCertSign |
+          KeyUsageFlags.cRLSign |
+          KeyUsageFlags.digitalSignature,
+        true
+      ),
+      await SubjectKeyIdentifierExtension.create(keys.publicKey)
+    ]
+  });
+
+  return {
+    cert_pem: cert.toString('pem'),
+    private_key_pem: PemFromDerForTest({
+      label: 'PRIVATE KEY',
+      data: await webcrypto.subtle.exportKey('pkcs8', keys.privateKey)
+    })
+  };
+}
+
+function randomSerialNumberForTest(): string {
+  return `${Date.now().toString(16)}${Math.floor(Math.random() * 0xffffffff)
+    .toString(16)
+    .padStart(8, '0')}`;
 }
 
 function WriteLegacyForgeRootCa(params: { ssl_ca_dir: string }): void {
@@ -2113,6 +2234,274 @@ test('HTTPS memory root and memory leaf certificates require no certificate dire
     assert.equal(response.status_code, 200);
     assert.match(response.body, /memory-root-upstream/);
     assert.equal(existsSync(unused_ssl_ca_dir), false);
+  } finally {
+    await mitm_server.close();
+    await CloseHttpServer({ server: upstream_server.server });
+  }
+});
+
+test('HTTPS supplied RSA root CA material signs default ECDSA leaves from memory', async () => {
+  const upstream_server = await StartHttpsServer({
+    handler: async (_request, response) => {
+      response.writeHead(200, { 'content-type': 'text/plain' });
+      response.end('supplied-rsa-root-upstream');
+    }
+  });
+
+  const material = GenerateForgeRootCaMaterial();
+  const mitm_server = await StartHttpMitm({
+    start_params: {
+      host: '127.0.0.1',
+      listen_port: 0,
+      https_agent: new https.Agent({ rejectUnauthorized: false }),
+      certificates: {
+        root_ca: { material },
+        leaf_certificates: { storage: 'memory' }
+      }
+    }
+  });
+
+  try {
+    assert.equal(mitm_server.ca.storage, 'memory');
+    assert.equal(mitm_server.ca.cert_path, undefined);
+    assert.equal(mitm_server.ca.key_algorithm, 'rsa_2048');
+    assert.equal(
+      new NodeX509Certificate(mitm_server.ca.cert_pem).fingerprint256,
+      new NodeX509Certificate(material.cert_pem).fingerprint256
+    );
+
+    const response = await SendHttpsConnectRequestViaProxy({
+      proxy_port: mitm_server.listen_port,
+      target_port: upstream_server.port,
+      ca_cert_pem: mitm_server.ca.cert_pem,
+      path: '/supplied-rsa-root'
+    });
+
+    assert.equal(response.status_code, 200);
+    assert.match(response.body, /supplied-rsa-root-upstream/);
+    assert.equal(
+      GetCertificatePublicKeyType({
+        cert_pem: mitm_server.proxy.ca.leafCache.get(
+          'ecdsa_p256:host:localhost'
+        ).certPem
+      }),
+      'ec'
+    );
+  } finally {
+    await mitm_server.close();
+    await CloseHttpServer({ server: upstream_server.server });
+  }
+});
+
+test('HTTPS supplied ECDSA root CA material signs ECDSA leaves from memory', async () => {
+  const upstream_server = await StartHttpsServer({
+    handler: async (_request, response) => {
+      response.writeHead(200, { 'content-type': 'text/plain' });
+      response.end('supplied-ecdsa-root-upstream');
+    }
+  });
+
+  const material = await GenerateEcdsaRootCaMaterial();
+  const mitm_server = await StartHttpMitm({
+    start_params: {
+      host: '127.0.0.1',
+      listen_port: 0,
+      https_agent: new https.Agent({ rejectUnauthorized: false }),
+      certificates: {
+        root_ca: { material, key_algorithm: 'ecdsa_p256' },
+        leaf_certificates: {
+          storage: 'memory',
+          wildcard: 'exact_host',
+          key_algorithm: 'ecdsa_p256'
+        }
+      }
+    }
+  });
+
+  try {
+    const response = await SendHttpsConnectRequestViaProxy({
+      proxy_port: mitm_server.listen_port,
+      target_port: upstream_server.port,
+      ca_cert_pem: mitm_server.ca.cert_pem,
+      path: '/supplied-ecdsa-root'
+    });
+
+    assert.equal(response.status_code, 200);
+    assert.match(response.body, /supplied-ecdsa-root-upstream/);
+    assert.equal(mitm_server.ca.storage, 'memory');
+    assert.equal(mitm_server.ca.key_algorithm, 'ecdsa_p256');
+    assert.equal(
+      GetCertificatePublicKeyType({ cert_pem: mitm_server.ca.cert_pem }),
+      'ec'
+    );
+  } finally {
+    await mitm_server.close();
+    await CloseHttpServer({ server: upstream_server.server });
+  }
+});
+
+test('HTTPS supplied encrypted root private key works with passphrase', async () => {
+  const upstream_server = await StartHttpsServer({
+    handler: async (_request, response) => {
+      response.writeHead(200, { 'content-type': 'text/plain' });
+      response.end('encrypted-root-upstream');
+    }
+  });
+
+  const material = GenerateForgeRootCaMaterial({
+    private_key_passphrase: 'correct horse battery staple'
+  });
+  const mitm_server = await StartHttpMitm({
+    start_params: {
+      host: '127.0.0.1',
+      listen_port: 0,
+      https_agent: new https.Agent({ rejectUnauthorized: false }),
+      certificates: {
+        root_ca: { material },
+        leaf_certificates: { storage: 'memory' }
+      }
+    }
+  });
+
+  try {
+    const response = await SendHttpsConnectRequestViaProxy({
+      proxy_port: mitm_server.listen_port,
+      target_port: upstream_server.port,
+      ca_cert_pem: mitm_server.ca.cert_pem,
+      path: '/encrypted-root'
+    });
+
+    assert.equal(response.status_code, 200);
+    assert.match(response.body, /encrypted-root-upstream/);
+  } finally {
+    await mitm_server.close();
+    await CloseHttpServer({ server: upstream_server.server });
+  }
+});
+
+test('HTTPS supplied root CA material rejects invalid configurations clearly', async () => {
+  const material = GenerateForgeRootCaMaterial({
+    private_key_passphrase: 'real-passphrase'
+  });
+  await assert.rejects(
+    StartHttpMitm({
+      start_params: {
+        host: '127.0.0.1',
+        listen_port: 0,
+        certificates: {
+          root_ca: {
+            material: {
+              ...material,
+              private_key_passphrase: 'wrong-passphrase'
+            }
+          },
+          leaf_certificates: { storage: 'memory' }
+        }
+      }
+    }),
+    /Invalid supplied root CA private key/
+  );
+
+  const first_material = GenerateForgeRootCaMaterial();
+  const second_material = GenerateForgeRootCaMaterial();
+  await assert.rejects(
+    StartHttpMitm({
+      start_params: {
+        host: '127.0.0.1',
+        listen_port: 0,
+        certificates: {
+          root_ca: {
+            material: {
+              cert_pem: first_material.cert_pem,
+              private_key_pem: second_material.private_key_pem
+            }
+          },
+          leaf_certificates: { storage: 'memory' }
+        }
+      }
+    }),
+    /public key does not match/
+  );
+
+  await assert.rejects(
+    StartHttpMitm({
+      start_params: {
+        host: '127.0.0.1',
+        listen_port: 0,
+        certificates: {
+          root_ca: {
+            material: first_material,
+            key_algorithm: 'ecdsa_p256'
+          },
+          leaf_certificates: { storage: 'memory' }
+        }
+      }
+    }),
+    /Supplied root CA key algorithm is rsa_2048, but ecdsa_p256 was requested/
+  );
+
+  await assert.rejects(
+    StartHttpMitm({
+      start_params: {
+        host: '127.0.0.1',
+        listen_port: 0,
+        certificates: {
+          root_ca: {
+            storage: 'disk',
+            material: first_material
+          },
+          leaf_certificates: { storage: 'memory' }
+        }
+      }
+    }),
+    /Supplied root CA material is memory-only/
+  );
+});
+
+test('HTTPS supplied memory root with disk leaves writes only leaf material', async () => {
+  const upstream_server = await StartHttpsServer({
+    handler: async (_request, response) => {
+      response.writeHead(200, { 'content-type': 'text/plain' });
+      response.end('supplied-root-disk-leaf-upstream');
+    }
+  });
+
+  const material = GenerateForgeRootCaMaterial();
+  const ssl_ca_dir = CreateSslCaDir({ test_name: 'supplied_root_disk_leaf' });
+  const mitm_server = await StartHttpMitm({
+    start_params: {
+      host: '127.0.0.1',
+      listen_port: 0,
+      ssl_ca_dir,
+      https_agent: new https.Agent({ rejectUnauthorized: false }),
+      certificates: {
+        root_ca: { storage: 'memory', material },
+        leaf_certificates: {
+          storage: 'disk',
+          wildcard: 'exact_host'
+        }
+      }
+    }
+  });
+
+  try {
+    const response = await SendHttpsConnectRequestViaProxy({
+      proxy_port: mitm_server.listen_port,
+      target_port: upstream_server.port,
+      ca_cert_pem: mitm_server.ca.cert_pem,
+      path: '/supplied-root-disk-leaf'
+    });
+
+    assert.equal(response.status_code, 200);
+    assert.match(response.body, /supplied-root-disk-leaf-upstream/);
+    await WaitForPath({
+      file_path: path.join(ssl_ca_dir, 'certs', 'localhost.ecdsa_p256.pem')
+    });
+    assert.equal(existsSync(path.join(ssl_ca_dir, 'certs', 'ca.pem')), false);
+    assert.equal(
+      existsSync(path.join(ssl_ca_dir, 'keys', 'ca.private.key')),
+      false
+    );
   } finally {
     await mitm_server.close();
     await CloseHttpServer({ server: upstream_server.server });

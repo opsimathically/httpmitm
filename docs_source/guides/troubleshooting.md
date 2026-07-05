@@ -14,6 +14,10 @@ ECDSA leaf certificate files include `.ecdsa_p256` in the filename so they can c
 
 If startup fails because an existing root CA key algorithm does not match the requested `certificates.root_ca.key_algorithm`, choose a fresh `ssl_ca_dir` or remove the old CA material after removing trust for the previous CA from affected clients.
 
+## Supplied Root CA Material Fails Startup
+
+When using `certificates.root_ca.material`, confirm the certificate PEM is a CA certificate, the private key PEM matches the certificate, the certificate validity window includes the current time, and `private_key_passphrase` is correct for encrypted private keys. Supplied material is memory-only, so remove `storage: "disk"` from `root_ca`.
+
 ## Upstream HTTPS Fails With Private Certificates
 
 Client trust of the MITM CA does not control upstream trust. Pass an `https_agent` configured with the upstream CA bundle or explicit test-only trust settings.

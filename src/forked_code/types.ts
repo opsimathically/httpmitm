@@ -47,11 +47,18 @@ export interface IProxyCertificateCacheOptions {
   ttlMs?: number;
 }
 
+export interface IProxyRootCAMaterial {
+  certPem: string;
+  privateKeyPem: string;
+  privateKeyPassphrase?: string;
+}
+
 export interface IProxyCertificateOptions {
   rootCA?: {
     storage?: IProxyCertificateStorage;
     sslCaDir?: string;
     keyAlgorithm?: IProxyCertificateKeyAlgorithm;
+    material?: IProxyRootCAMaterial;
   };
   leafCertificates?: {
     storage?: IProxyCertificateStorage;

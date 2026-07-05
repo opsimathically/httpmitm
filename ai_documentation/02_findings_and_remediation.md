@@ -50,6 +50,10 @@
   - Fix: add configurable RSA-2048 or ECDSA P-256 certificate key algorithms with RSA root CA and ECDSA leaf certificates as the default.
   - Verification: default RSA-root/ECDSA-leaf, explicit all-RSA, explicit all-ECDSA, root mismatch, and leaf filename separation tests pass.
 
+- Finding: database-backed callers could not supply existing root CA material without writing it to disk first.
+  - Fix: add memory-only supplied root CA material with optional encrypted private key passphrase support.
+  - Verification: supplied RSA, supplied ECDSA, encrypted key, mismatch, disk rejection, and disk leaf tests pass.
+
 ## Security
 
 - Finding: production audit reported vulnerable direct dependencies.

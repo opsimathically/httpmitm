@@ -163,7 +163,7 @@ await httpmitm.start({
 
 ## HTTPS And Certificates
 
-HTTPS CONNECT traffic is intercepted by generating a local CA certificate and leaf certificates for requested hosts. For backward compatibility, callers that only use `ssl_ca_dir` get the existing disk-backed behavior: the root CA and per-host leaf certificates are stored under `ssl_ca_dir`.
+HTTPS CONNECT traffic is intercepted by generating a local CA certificate and leaf certificates for requested hosts. For disk-storage compatibility, callers that only use `ssl_ca_dir` get the existing root CA and per-host leaf certificate directory behavior under `ssl_ca_dir`.
 
 - Set a stable `ssl_ca_dir` if clients need to trust the same CA across restarts.
 - Trust `ssl_ca_dir/certs/ca.pem` only in the test client or controlled environment using the proxy.
@@ -216,6 +216,27 @@ await httpmitm.start({
 When `certificates.leaf_certificates.wildcard` is `registrable_domain`, HTTPMITM uses Public Suffix List parsing to reuse valid wildcard leaf certificates such as `example.com` plus `*.example.com`. IP addresses, `localhost`, single-label hosts, and deeper names that a registrable-domain wildcard cannot cover fall back to exact-host certificates. A universal wildcard certificate is not supported because browsers will not accept one for arbitrary domains.
 
 Fully memory-backed root CA mode is process-local: clients must trust the returned `server.ca.cert_pem` for that running proxy instance. A memory root with disk-backed leaf certificates is supported, but those leaf files are signed by an ephemeral CA and should not be treated as reusable across process restarts.
+
+Existing root CA material can also be supplied from memory, which is useful when a calling application stores CA material in a database or secret manager. The supplied root CA private key is used only inside the running proxy and is not returned from `start()`.
+
+```typescript
+const root_ca_from_database = await loadRootCaFromDatabase();
+
+const server = await httpmitm.start({
+  certificates: {
+    root_ca: {
+      material: {
+        cert_pem: root_ca_from_database.cert_pem,
+        private_key_pem: root_ca_from_database.private_key_pem,
+        private_key_passphrase: root_ca_from_database.private_key_passphrase,
+      },
+    },
+    leaf_certificates: { storage: "memory" },
+  },
+});
+```
+
+When `root_ca.material` is present, root CA storage defaults to `memory`. Supplying root CA material with `storage: "disk"` is rejected so private key material is not accidentally persisted by the library. If a supplied private key is encrypted, provide `private_key_passphrase`; otherwise decrypt it before passing it to `start()`.
 
 If upstream HTTPS services use private or self-signed certificates, pass an explicit upstream HTTPS agent:
 
@@ -294,6 +315,10 @@ npm run verify
 
 `npm run verify` runs build, typecheck, lint, docs generation, tests, production audit, npm pack dry-run, and package install smoke tests. Release verification is local-script based; this project intentionally does not use GitHub workflow files.
 
+## Release Versioning
+
+Before publishing, update `package.json` to the intended semver. The current production-ready API includes breaking runtime and behavior changes relative to earlier Node 20-era work: Node.js `>=26` is required, zstd uses built-in Node zlib APIs, deprecated compatibility options were removed, and default leaf certificates are ECDSA P-256. Treat those as major-version material if the previous published package exposed the older baseline.
+
 ## Benchmarks
 
 Benchmarks are opt-in and are not part of `npm run verify` because performance varies by machine and Node.js version.
@@ -325,6 +350,7 @@ Generated `docs/` output is kept in the repository for readers but is not includ
 - Callback times out: reduce callback work, increase `limits.callback_timeout_ms`, or configure `callback_error_policy: "PASSTHROUGH"` only when fail-open behavior is acceptable.
 - Body or frame is terminated: raise the matching limit after confirming memory capacity and expected payload sizes.
 - HTTPS client rejects certificates: trust `ssl_ca_dir/certs/ca.pem` for disk-backed root CA mode, or `server.ca.cert_pem` for memory-backed root CA mode.
+- Supplied root CA fails startup: confirm the cert is a CA certificate, the private key matches, the passphrase is correct, and `root_ca.key_algorithm` matches the supplied key.
 - Upstream self-signed TLS fails: pass `https_agent` with the upstream trust policy you need.
 - zstd payloads are not decoded: confirm the process is running on Node.js `>=26` and inspect `context.decode_error` for corrupt payload details.
 - Corrupt or unsupported `Content-Encoding`: inspect `context.decode_error`; passthrough forwards original bytes.

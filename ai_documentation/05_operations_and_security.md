@@ -6,6 +6,8 @@
 - Disk-backed root CA and leaf certificate storage uses `ssl_ca_dir`; production users must protect this directory like credential material.
 - Memory-backed root CA storage exposes `server.ca.cert_pem` for client trust and writes no CA material to disk.
 - Memory-backed leaf certificate storage uses an in-process LRU/TTL cache and avoids per-host leaf certificate files.
+- Existing root CA material can be supplied from memory for database or secret-manager backed trust anchors.
+- Supplied root CA material is never written to disk and the private key is not exposed on the returned server handle.
 - Default certificate algorithms are RSA-2048 for root CA and ECDSA P-256 for leaf certificates.
 - Explicit RSA-2048 leaf certificates remain available for compatibility; ECDSA roots are opt-in.
 - Disk root CA algorithm conflicts fail at startup instead of silently replacing trust anchors.

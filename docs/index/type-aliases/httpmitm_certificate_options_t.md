@@ -8,7 +8,7 @@
 
 > **httpmitm\_certificate\_options\_t** = `object`
 
-Defined in: [classes/httpmitm/httpmitm.types.ts:92](https://github.com/opsimathically/httpmitm/blob/907fc22be15c6dd08c90d5c416ed97a5bd7082a8/src/classes/httpmitm/httpmitm.types.ts#L92)
+Defined in: [classes/httpmitm/httpmitm.types.ts:102](https://github.com/opsimathically/httpmitm/blob/77ee9556653857e9362697295c3c7ddb7f307a5c/src/classes/httpmitm/httpmitm.types.ts#L102)
 
 Root CA and leaf certificate storage options.
 
@@ -22,7 +22,7 @@ root CA and exact-host leaf certificates are stored on disk under
 
 > `optional` **leaf\_certificates**: `object`
 
-Defined in: [classes/httpmitm/httpmitm.types.ts:101](https://github.com/opsimathically/httpmitm/blob/907fc22be15c6dd08c90d5c416ed97a5bd7082a8/src/classes/httpmitm/httpmitm.types.ts#L101)
+Defined in: [classes/httpmitm/httpmitm.types.ts:113](https://github.com/opsimathically/httpmitm/blob/77ee9556653857e9362697295c3c7ddb7f307a5c/src/classes/httpmitm/httpmitm.types.ts#L113)
 
 #### cache?
 
@@ -54,13 +54,19 @@ Leaf certificate identity strategy. Default: `registrable_domain` when `certific
 
 > `optional` **root\_ca**: `object`
 
-Defined in: [classes/httpmitm/httpmitm.types.ts:93](https://github.com/opsimathically/httpmitm/blob/907fc22be15c6dd08c90d5c416ed97a5bd7082a8/src/classes/httpmitm/httpmitm.types.ts#L93)
+Defined in: [classes/httpmitm/httpmitm.types.ts:103](https://github.com/opsimathically/httpmitm/blob/77ee9556653857e9362697295c3c7ddb7f307a5c/src/classes/httpmitm/httpmitm.types.ts#L103)
 
 #### key\_algorithm?
 
 > `optional` **key\_algorithm**: [`httpmitm_certificate_key_algorithm_t`](httpmitm_certificate_key_algorithm_t.md)
 
 Root CA key algorithm. Default: `rsa_2048`.
+
+#### material?
+
+> `optional` **material**: [`httpmitm_root_ca_material_t`](httpmitm_root_ca_material_t.md)
+
+Existing memory-only root CA material. When present, root storage defaults to `memory`.
 
 #### ssl\_ca\_dir?
 

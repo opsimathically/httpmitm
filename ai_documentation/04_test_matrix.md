@@ -16,6 +16,7 @@
 - Complete: explicit RSA root/RSA leaf and explicit ECDSA root/ECDSA leaf HTTPS handshakes.
 - Complete: disk root key algorithm mismatch failure.
 - Complete: RSA and ECDSA disk leaf cache filename separation.
+- Complete: supplied in-memory root CA material for RSA, ECDSA, encrypted key passphrase, mismatch failures, disk-storage rejection, and disk leaf output.
 - Complete: registrable-domain wildcard reuse, exact-host fallback, leaf cache TTL/LRU, and concurrent generation locking.
 - Complete: keep-alive repeated requests through one proxy instance.
 - Complete: concurrent delayed callbacks without cross-request leakage.
@@ -31,4 +32,4 @@
 
 `npm run verify` must run the automated test suite and package smoke tests.
 
-Current automated suite contains 33 e2e tests.
+Current automated suite contains 43 tests covering e2e proxy behavior, package smoke behavior, certificate storage, certificate algorithms, and supplied root CA material.

@@ -4,6 +4,7 @@
 
 - Supported Node.js version: `>=26`.
 - Published module entry points are CommonJS, ESM, and TypeScript declarations through the package exports map.
+- Publishing requires an explicit semver decision before `npm publish`; the current runtime baseline and certificate defaults are breaking if compared with older Node 20-era builds.
 
 ## Public Exports
 
@@ -25,6 +26,9 @@
 - `certificates.root_ca.storage`: root CA storage backend, `disk` or `memory`. Default: `disk`.
 - `certificates.root_ca.ssl_ca_dir`: disk directory for persisted root CA material. Defaults to `ssl_ca_dir` or `.http-mitm-proxy`.
 - `certificates.root_ca.key_algorithm`: root CA key algorithm, `rsa_2048` or `ecdsa_p256`. Default: `rsa_2048`.
+- `certificates.root_ca.material.cert_pem`: existing root CA certificate PEM supplied from memory.
+- `certificates.root_ca.material.private_key_pem`: existing root CA private key PEM supplied from memory.
+- `certificates.root_ca.material.private_key_passphrase`: optional passphrase for encrypted private key PEM.
 - `certificates.leaf_certificates.storage`: leaf certificate storage backend, `disk` or `memory`. Default: `disk`.
 - `certificates.leaf_certificates.wildcard`: `registrable_domain` or `exact_host`. Default: `registrable_domain` when `certificates` is configured. When `certificates` is omitted entirely, legacy exact-host disk behavior is preserved.
 - `certificates.leaf_certificates.key_algorithm`: leaf certificate key algorithm, `rsa_2048` or `ecdsa_p256`. Default: `ecdsa_p256`.
@@ -43,4 +47,5 @@
 - zstd support uses Node.js 26 native `node:zlib` Zstandard APIs; no external binary is required. Corrupt zstd payloads surface as decode/encode errors.
 - `stop()` and the returned server `close()` method await server shutdown.
 - Fully memory-backed certificate mode does not write root CA or leaf certificate material to disk; callers trust the returned `server.ca.cert_pem`.
+- Supplied root CA material implies memory root storage when `storage` is omitted; `storage: "disk"` with supplied material is rejected.
 - Memory root plus disk leaf mode is supported, but disk leaf files are signed by an ephemeral process-local CA and are not durable trust material across restarts.

@@ -12,7 +12,7 @@ The preferred public API is `HTTPMITM`. The lower-level `Proxy` export remains a
 
 - [Getting Started](documents/getting-started.md): install, import, start, and stop the proxy.
 - [HTTP Interception](documents/http-interception.md): headers, bodies, content encoding, and result states.
-- [HTTPS And CA Handling](documents/https-and-ca.md): CONNECT interception, disk or memory certificate storage, generated CA trust, and upstream TLS agents.
+- [HTTPS And CA Handling](documents/https-and-ca.md): CONNECT interception, disk or memory certificate storage, supplied root CA material, generated CA trust, and upstream TLS agents.
 - [WebSocket Interception](documents/websocket-interception.md): upgrade handling, frames, close events, and limits.
 - [Plugins](documents/plugins.md): deterministic plugin ordering and `CONTINUE` behavior.
 - [Operations And Security](documents/operations-and-security.md): limits, logger behavior, zstd, audit policy, and package contents.

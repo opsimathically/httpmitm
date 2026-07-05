@@ -48,6 +48,7 @@ export type {
   httpmitm_certificate_options_t,
   httpmitm_certificate_storage_t,
   httpmitm_leaf_certificate_wildcard_t,
+  httpmitm_root_ca_material_t,
   websocket_callback_context_base_t,
   websocket_callback_group_t,
   websocket_callback_handles_t,
@@ -72,4 +73,5 @@ export type {
   IProxyCertificateOptions,
   IProxyCertificateStorage,
   IProxyLeafCertificateWildcard,
+  IProxyRootCAMaterial,
 } from "./forked_code/types";

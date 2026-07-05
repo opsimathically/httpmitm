@@ -76,12 +76,22 @@ function normalizeCertificateOptions(options: IProxyOptions) {
   const leafCertificates = options.certificates?.leafCertificates || {};
   const cache = leafCertificates.cache || {};
   const sslCaDir = rootCA.sslCaDir || options.sslCaDir || DEFAULT_SSL_CA_DIR;
+  const rootStorage = rootCA.material
+    ? rootCA.storage || "memory"
+    : rootCA.storage || "disk";
+
+  if (rootCA.material && rootStorage === "disk") {
+    throw new Error(
+      "Supplied root CA material is memory-only and cannot be used with rootCA.storage \"disk\"."
+    );
+  }
 
   return {
     rootCA: {
-      storage: rootCA.storage || "disk",
+      storage: rootStorage,
       sslCaDir,
       keyAlgorithm: rootCA.keyAlgorithm || "rsa_2048",
+      material: rootCA.material,
     },
     leafCertificates: {
       storage: leafCertificates.storage || "disk",

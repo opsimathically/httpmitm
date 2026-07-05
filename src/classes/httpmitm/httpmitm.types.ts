@@ -82,6 +82,16 @@ export type httpmitm_certificate_cache_options_t = {
   ttl_ms?: number;
 };
 
+/** Existing root CA material supplied by the caller. */
+export type httpmitm_root_ca_material_t = {
+  /** Root CA certificate PEM for client trust and leaf signing. */
+  cert_pem: string;
+  /** Root CA private key PEM used to sign generated leaf certificates. */
+  private_key_pem: string;
+  /** Optional passphrase for encrypted private key PEM. */
+  private_key_passphrase?: string;
+};
+
 /**
  * Root CA and leaf certificate storage options.
  *
@@ -97,6 +107,8 @@ export type httpmitm_certificate_options_t = {
     ssl_ca_dir?: string;
     /** Root CA key algorithm. Default: `rsa_2048`. */
     key_algorithm?: httpmitm_certificate_key_algorithm_t;
+    /** Existing memory-only root CA material. When present, root storage defaults to `memory`. */
+    material?: httpmitm_root_ca_material_t;
   };
   leaf_certificates?: {
     /** Leaf certificate storage backend. Default: `disk`. */

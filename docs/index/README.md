@@ -20,6 +20,7 @@
 - [httpmitm\_plugin\_websocket\_hooks\_i](interfaces/httpmitm_plugin_websocket_hooks_i.md)
 - [IProxyCertificateCacheOptions](interfaces/IProxyCertificateCacheOptions.md)
 - [IProxyCertificateOptions](interfaces/IProxyCertificateOptions.md)
+- [IProxyRootCAMaterial](interfaces/IProxyRootCAMaterial.md)
 
 ## Type Aliases
 
@@ -51,6 +52,7 @@
 - [httpmitm\_limits\_t](type-aliases/httpmitm_limits_t.md)
 - [httpmitm\_log\_metadata\_t](type-aliases/httpmitm_log_metadata_t.md)
 - [httpmitm\_logger\_t](type-aliases/httpmitm_logger_t.md)
+- [httpmitm\_root\_ca\_material\_t](type-aliases/httpmitm_root_ca_material_t.md)
 - [httpmitm\_server\_t](type-aliases/httpmitm_server_t.md)
 - [httpmitm\_start\_params\_t](type-aliases/httpmitm_start_params_t.md)
 - [interception\_state\_t](type-aliases/interception_state_t.md)

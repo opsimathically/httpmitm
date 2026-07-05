@@ -1,7 +1,7 @@
 {
   "name": "@opsimathically/httpmitm",
-  "version": "0.0.2",
-  "description": "Forked version of node-http-mitm-proxy with awaited forwarding callbacks and configurable disk or memory certificate storage.",
+  "version": "1.0.1",
+  "description": "Typed Node.js HTTP, HTTPS, and WebSocket MITM proxy with awaited callbacks, native zstd, and configurable certificate storage.",
   "main": "dist/index.js",
   "module": "dist/index.mjs",
   "types": "dist/index.d.ts",
