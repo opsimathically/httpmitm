@@ -8,7 +8,7 @@
 
 > **http\_callback\_group\_client\_to\_server\_t** = `object`
 
-Defined in: [classes/httpmitm/httpmitm.types.ts:410](https://github.com/opsimathically/httpmitm/blob/11bc0beac1e739d2243eb4c7bd876900a03c12d4/src/classes/httpmitm/httpmitm.types.ts#L410)
+Defined in: [classes/httpmitm/httpmitm.types.ts:419](https://github.com/opsimathically/httpmitm/blob/907fc22be15c6dd08c90d5c416ed97a5bd7082a8/src/classes/httpmitm/httpmitm.types.ts#L419)
 
 Client-to-server HTTP callback group.
 
@@ -18,7 +18,7 @@ Client-to-server HTTP callback group.
 
 > `optional` **requestData**: [`http_request_data_callback_t`](http_request_data_callback_t.md)
 
-Defined in: [classes/httpmitm/httpmitm.types.ts:412](https://github.com/opsimathically/httpmitm/blob/11bc0beac1e739d2243eb4c7bd876900a03c12d4/src/classes/httpmitm/httpmitm.types.ts#L412)
+Defined in: [classes/httpmitm/httpmitm.types.ts:421](https://github.com/opsimathically/httpmitm/blob/907fc22be15c6dd08c90d5c416ed97a5bd7082a8/src/classes/httpmitm/httpmitm.types.ts#L421)
 
 ***
 
@@ -26,4 +26,4 @@ Defined in: [classes/httpmitm/httpmitm.types.ts:412](https://github.com/opsimath
 
 > `optional` **requestHeaders**: [`http_request_headers_callback_t`](http_request_headers_callback_t.md)
 
-Defined in: [classes/httpmitm/httpmitm.types.ts:411](https://github.com/opsimathically/httpmitm/blob/11bc0beac1e739d2243eb4c7bd876900a03c12d4/src/classes/httpmitm/httpmitm.types.ts#L411)
+Defined in: [classes/httpmitm/httpmitm.types.ts:420](https://github.com/opsimathically/httpmitm/blob/907fc22be15c6dd08c90d5c416ed97a5bd7082a8/src/classes/httpmitm/httpmitm.types.ts#L420)

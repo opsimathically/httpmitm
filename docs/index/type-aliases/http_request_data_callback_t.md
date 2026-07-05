@@ -8,7 +8,7 @@
 
 > **http\_request\_data\_callback\_t** = (`params`) => `Promise`\<[`http_interception_result_t`](http_interception_result_t.md) \| `void`\>
 
-Defined in: [classes/httpmitm/httpmitm.types.ts:335](https://github.com/opsimathically/httpmitm/blob/11bc0beac1e739d2243eb4c7bd876900a03c12d4/src/classes/httpmitm/httpmitm.types.ts#L335)
+Defined in: [classes/httpmitm/httpmitm.types.ts:344](https://github.com/opsimathically/httpmitm/blob/907fc22be15c6dd08c90d5c416ed97a5bd7082a8/src/classes/httpmitm/httpmitm.types.ts#L344)
 
 Callback for buffered HTTP request body data.
 

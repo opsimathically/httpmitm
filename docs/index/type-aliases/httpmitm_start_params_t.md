@@ -8,7 +8,7 @@
 
 > **httpmitm\_start\_params\_t** = `object`
 
-Defined in: [classes/httpmitm/httpmitm.types.ts:474](https://github.com/opsimathically/httpmitm/blob/11bc0beac1e739d2243eb4c7bd876900a03c12d4/src/classes/httpmitm/httpmitm.types.ts#L474)
+Defined in: [classes/httpmitm/httpmitm.types.ts:483](https://github.com/opsimathically/httpmitm/blob/907fc22be15c6dd08c90d5c416ed97a5bd7082a8/src/classes/httpmitm/httpmitm.types.ts#L483)
 
 Start parameters for the preferred public `HTTPMITM` wrapper API.
 
@@ -18,7 +18,7 @@ Start parameters for the preferred public `HTTPMITM` wrapper API.
 
 > `optional` **callback\_error\_policy**: [`callback_error_policy_t`](callback_error_policy_t.md)
 
-Defined in: [classes/httpmitm/httpmitm.types.ts:498](https://github.com/opsimathically/httpmitm/blob/11bc0beac1e739d2243eb4c7bd876900a03c12d4/src/classes/httpmitm/httpmitm.types.ts#L498)
+Defined in: [classes/httpmitm/httpmitm.types.ts:507](https://github.com/opsimathically/httpmitm/blob/907fc22be15c6dd08c90d5c416ed97a5bd7082a8/src/classes/httpmitm/httpmitm.types.ts#L507)
 
 Callback error and timeout policy. Default: `TERMINATE`.
 
@@ -28,7 +28,7 @@ Callback error and timeout policy. Default: `TERMINATE`.
 
 > `optional` **certificates**: [`httpmitm_certificate_options_t`](httpmitm_certificate_options_t.md)
 
-Defined in: [classes/httpmitm/httpmitm.types.ts:482](https://github.com/opsimathically/httpmitm/blob/11bc0beac1e739d2243eb4c7bd876900a03c12d4/src/classes/httpmitm/httpmitm.types.ts#L482)
+Defined in: [classes/httpmitm/httpmitm.types.ts:491](https://github.com/opsimathically/httpmitm/blob/907fc22be15c6dd08c90d5c416ed97a5bd7082a8/src/classes/httpmitm/httpmitm.types.ts#L491)
 
 Root CA and leaf certificate storage behavior.
 
@@ -38,7 +38,7 @@ Root CA and leaf certificate storage behavior.
 
 > `optional` **force\_chunked\_request**: `boolean`
 
-Defined in: [classes/httpmitm/httpmitm.types.ts:496](https://github.com/opsimathically/httpmitm/blob/11bc0beac1e739d2243eb4c7bd876900a03c12d4/src/classes/httpmitm/httpmitm.types.ts#L496)
+Defined in: [classes/httpmitm/httpmitm.types.ts:505](https://github.com/opsimathically/httpmitm/blob/907fc22be15c6dd08c90d5c416ed97a5bd7082a8/src/classes/httpmitm/httpmitm.types.ts#L505)
 
 Force chunked request forwarding in the underlying proxy.
 
@@ -48,7 +48,7 @@ Force chunked request forwarding in the underlying proxy.
 
 > `optional` **force\_sni**: `boolean`
 
-Defined in: [classes/httpmitm/httpmitm.types.ts:488](https://github.com/opsimathically/httpmitm/blob/11bc0beac1e739d2243eb4c7bd876900a03c12d4/src/classes/httpmitm/httpmitm.types.ts#L488)
+Defined in: [classes/httpmitm/httpmitm.types.ts:497](https://github.com/opsimathically/httpmitm/blob/907fc22be15c6dd08c90d5c416ed97a5bd7082a8/src/classes/httpmitm/httpmitm.types.ts#L497)
 
 Force SNI handling in the underlying proxy.
 
@@ -58,7 +58,7 @@ Force SNI handling in the underlying proxy.
 
 > `optional` **host**: `string`
 
-Defined in: [classes/httpmitm/httpmitm.types.ts:476](https://github.com/opsimathically/httpmitm/blob/11bc0beac1e739d2243eb4c7bd876900a03c12d4/src/classes/httpmitm/httpmitm.types.ts#L476)
+Defined in: [classes/httpmitm/httpmitm.types.ts:485](https://github.com/opsimathically/httpmitm/blob/907fc22be15c6dd08c90d5c416ed97a5bd7082a8/src/classes/httpmitm/httpmitm.types.ts#L485)
 
 Proxy host. Defaults to `localhost` in the returned server metadata.
 
@@ -68,7 +68,7 @@ Proxy host. Defaults to `localhost` in the returned server metadata.
 
 > `optional` **http**: [`http_callback_group_t`](http_callback_group_t.md)
 
-Defined in: [classes/httpmitm/httpmitm.types.ts:506](https://github.com/opsimathically/httpmitm/blob/11bc0beac1e739d2243eb4c7bd876900a03c12d4/src/classes/httpmitm/httpmitm.types.ts#L506)
+Defined in: [classes/httpmitm/httpmitm.types.ts:515](https://github.com/opsimathically/httpmitm/blob/907fc22be15c6dd08c90d5c416ed97a5bd7082a8/src/classes/httpmitm/httpmitm.types.ts#L515)
 
 HTTP interception callbacks.
 
@@ -78,7 +78,7 @@ HTTP interception callbacks.
 
 > `optional` **http\_agent**: `HttpAgent`
 
-Defined in: [classes/httpmitm/httpmitm.types.ts:492](https://github.com/opsimathically/httpmitm/blob/11bc0beac1e739d2243eb4c7bd876900a03c12d4/src/classes/httpmitm/httpmitm.types.ts#L492)
+Defined in: [classes/httpmitm/httpmitm.types.ts:501](https://github.com/opsimathically/httpmitm/blob/907fc22be15c6dd08c90d5c416ed97a5bd7082a8/src/classes/httpmitm/httpmitm.types.ts#L501)
 
 Optional upstream HTTP agent.
 
@@ -88,7 +88,7 @@ Optional upstream HTTP agent.
 
 > `optional` **https\_agent**: `HttpsAgent`
 
-Defined in: [classes/httpmitm/httpmitm.types.ts:494](https://github.com/opsimathically/httpmitm/blob/11bc0beac1e739d2243eb4c7bd876900a03c12d4/src/classes/httpmitm/httpmitm.types.ts#L494)
+Defined in: [classes/httpmitm/httpmitm.types.ts:503](https://github.com/opsimathically/httpmitm/blob/907fc22be15c6dd08c90d5c416ed97a5bd7082a8/src/classes/httpmitm/httpmitm.types.ts#L503)
 
 Optional upstream HTTPS agent for custom upstream TLS trust.
 
@@ -98,7 +98,7 @@ Optional upstream HTTPS agent for custom upstream TLS trust.
 
 > `optional` **https\_listen\_port**: `number`
 
-Defined in: [classes/httpmitm/httpmitm.types.ts:490](https://github.com/opsimathically/httpmitm/blob/11bc0beac1e739d2243eb4c7bd876900a03c12d4/src/classes/httpmitm/httpmitm.types.ts#L490)
+Defined in: [classes/httpmitm/httpmitm.types.ts:499](https://github.com/opsimathically/httpmitm/blob/907fc22be15c6dd08c90d5c416ed97a5bd7082a8/src/classes/httpmitm/httpmitm.types.ts#L499)
 
 Optional HTTPS proxy listen port used by the underlying proxy.
 
@@ -108,7 +108,7 @@ Optional HTTPS proxy listen port used by the underlying proxy.
 
 > `optional` **keep\_alive**: `boolean`
 
-Defined in: [classes/httpmitm/httpmitm.types.ts:484](https://github.com/opsimathically/httpmitm/blob/11bc0beac1e739d2243eb4c7bd876900a03c12d4/src/classes/httpmitm/httpmitm.types.ts#L484)
+Defined in: [classes/httpmitm/httpmitm.types.ts:493](https://github.com/opsimathically/httpmitm/blob/907fc22be15c6dd08c90d5c416ed97a5bd7082a8/src/classes/httpmitm/httpmitm.types.ts#L493)
 
 Enable keep-alive behavior in the underlying proxy.
 
@@ -118,7 +118,7 @@ Enable keep-alive behavior in the underlying proxy.
 
 > `optional` **limits**: [`httpmitm_limits_t`](httpmitm_limits_t.md)
 
-Defined in: [classes/httpmitm/httpmitm.types.ts:500](https://github.com/opsimathically/httpmitm/blob/11bc0beac1e739d2243eb4c7bd876900a03c12d4/src/classes/httpmitm/httpmitm.types.ts#L500)
+Defined in: [classes/httpmitm/httpmitm.types.ts:509](https://github.com/opsimathically/httpmitm/blob/907fc22be15c6dd08c90d5c416ed97a5bd7082a8/src/classes/httpmitm/httpmitm.types.ts#L509)
 
 Runtime payload and callback safety limits.
 
@@ -128,7 +128,7 @@ Runtime payload and callback safety limits.
 
 > `optional` **listen\_port**: `number`
 
-Defined in: [classes/httpmitm/httpmitm.types.ts:478](https://github.com/opsimathically/httpmitm/blob/11bc0beac1e739d2243eb4c7bd876900a03c12d4/src/classes/httpmitm/httpmitm.types.ts#L478)
+Defined in: [classes/httpmitm/httpmitm.types.ts:487](https://github.com/opsimathically/httpmitm/blob/907fc22be15c6dd08c90d5c416ed97a5bd7082a8/src/classes/httpmitm/httpmitm.types.ts#L487)
 
 HTTP proxy listen port. Use `0` to request an ephemeral port.
 
@@ -138,7 +138,7 @@ HTTP proxy listen port. Use `0` to request an ephemeral port.
 
 > `optional` **logger**: [`httpmitm_logger_t`](httpmitm_logger_t.md)
 
-Defined in: [classes/httpmitm/httpmitm.types.ts:502](https://github.com/opsimathically/httpmitm/blob/11bc0beac1e739d2243eb4c7bd876900a03c12d4/src/classes/httpmitm/httpmitm.types.ts#L502)
+Defined in: [classes/httpmitm/httpmitm.types.ts:511](https://github.com/opsimathically/httpmitm/blob/907fc22be15c6dd08c90d5c416ed97a5bd7082a8/src/classes/httpmitm/httpmitm.types.ts#L511)
 
 Optional structured diagnostics logger. Default: silent.
 
@@ -148,7 +148,7 @@ Optional structured diagnostics logger. Default: silent.
 
 > `optional` **plugins**: [`httpmitm_plugin_i`](../interfaces/httpmitm_plugin_i.md)[]
 
-Defined in: [classes/httpmitm/httpmitm.types.ts:504](https://github.com/opsimathically/httpmitm/blob/11bc0beac1e739d2243eb4c7bd876900a03c12d4/src/classes/httpmitm/httpmitm.types.ts#L504)
+Defined in: [classes/httpmitm/httpmitm.types.ts:513](https://github.com/opsimathically/httpmitm/blob/907fc22be15c6dd08c90d5c416ed97a5bd7082a8/src/classes/httpmitm/httpmitm.types.ts#L513)
 
 Ordered plugin instances.
 
@@ -158,7 +158,7 @@ Ordered plugin instances.
 
 > `optional` **ssl\_ca\_dir**: `string`
 
-Defined in: [classes/httpmitm/httpmitm.types.ts:480](https://github.com/opsimathically/httpmitm/blob/11bc0beac1e739d2243eb4c7bd876900a03c12d4/src/classes/httpmitm/httpmitm.types.ts#L480)
+Defined in: [classes/httpmitm/httpmitm.types.ts:489](https://github.com/opsimathically/httpmitm/blob/907fc22be15c6dd08c90d5c416ed97a5bd7082a8/src/classes/httpmitm/httpmitm.types.ts#L489)
 
 Compatibility disk directory for generated CA and leaf certificate material.
 
@@ -168,7 +168,7 @@ Compatibility disk directory for generated CA and leaf certificate material.
 
 > `optional` **timeout**: `number`
 
-Defined in: [classes/httpmitm/httpmitm.types.ts:486](https://github.com/opsimathically/httpmitm/blob/11bc0beac1e739d2243eb4c7bd876900a03c12d4/src/classes/httpmitm/httpmitm.types.ts#L486)
+Defined in: [classes/httpmitm/httpmitm.types.ts:495](https://github.com/opsimathically/httpmitm/blob/907fc22be15c6dd08c90d5c416ed97a5bd7082a8/src/classes/httpmitm/httpmitm.types.ts#L495)
 
 Underlying proxy socket timeout in milliseconds.
 
@@ -178,6 +178,6 @@ Underlying proxy socket timeout in milliseconds.
 
 > `optional` **websocket**: [`websocket_callback_group_t`](websocket_callback_group_t.md)
 
-Defined in: [classes/httpmitm/httpmitm.types.ts:508](https://github.com/opsimathically/httpmitm/blob/11bc0beac1e739d2243eb4c7bd876900a03c12d4/src/classes/httpmitm/httpmitm.types.ts#L508)
+Defined in: [classes/httpmitm/httpmitm.types.ts:517](https://github.com/opsimathically/httpmitm/blob/907fc22be15c6dd08c90d5c416ed97a5bd7082a8/src/classes/httpmitm/httpmitm.types.ts#L517)
 
 WebSocket interception callbacks.

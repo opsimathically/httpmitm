@@ -1,149 +1,178 @@
 // @ts-nocheck
+import "reflect-metadata";
 import FS from "fs";
 import path from "path";
 import { isIP } from "net";
-import Forge from "node-forge";
-const { pki, md } = Forge;
+import {
+  createPrivateKey,
+  createPublicKey,
+  randomBytes,
+  webcrypto,
+} from "node:crypto";
+import {
+  BasicConstraintsExtension,
+  DNS,
+  ExtendedKeyUsage,
+  ExtendedKeyUsageExtension,
+  IP,
+  KeyUsageFlags,
+  KeyUsagesExtension,
+  SubjectAlternativeNameExtension,
+  SubjectKeyIdentifierExtension,
+  X509Certificate,
+  X509CertificateGenerator,
+  cryptoProvider,
+} from "@peculiar/x509";
 import async from "async";
 import { parse as parseDomain } from "tldts";
 
 type ErrnoException = NodeJS.ErrnoException;
+type certificate_key_algorithm_t = "rsa_2048" | "ecdsa_p256";
 
 const DEFAULT_SSL_CA_DIR = path.resolve(process.cwd(), ".http-mitm-proxy");
 const DEFAULT_LEAF_CACHE_MAX_ENTRIES = 1000;
 const DEFAULT_LEAF_CACHE_TTL_MS = 3_600_000;
+const DEFAULT_ROOT_KEY_ALGORITHM: certificate_key_algorithm_t = "rsa_2048";
+const DEFAULT_LEAF_KEY_ALGORITHM: certificate_key_algorithm_t = "ecdsa_p256";
+const ROOT_SUBJECT = "CN=NodeMITMProxyCA,C=Internet,ST=Internet,L=Internet,O=Node MITM Proxy CA,OU=CA";
+const LEAF_SUBJECT_SUFFIX = "C=Internet,ST=Internet,L=Internet,O=Node MITM Proxy CA,OU=Node MITM Proxy Server Certificate";
 
-const CAattrs = [
-  {
-    name: "commonName",
-    value: "NodeMITMProxyCA",
-  },
-  {
-    name: "countryName",
-    value: "Internet",
-  },
-  {
-    shortName: "ST",
-    value: "Internet",
-  },
-  {
-    name: "localityName",
-    value: "Internet",
-  },
-  {
-    name: "organizationName",
-    value: "Node MITM Proxy CA",
-  },
-  {
-    shortName: "OU",
-    value: "CA",
-  },
-];
+cryptoProvider.set(webcrypto);
 
-const CAextensions = [
-  {
-    name: "basicConstraints",
-    cA: true,
-  },
-  {
-    name: "keyUsage",
-    keyCertSign: true,
-    digitalSignature: true,
-    nonRepudiation: true,
-    keyEncipherment: true,
-    dataEncipherment: true,
-  },
-  {
-    name: "extKeyUsage",
-    serverAuth: true,
-    clientAuth: true,
-    codeSigning: true,
-    emailProtection: true,
-    timeStamping: true,
-  },
-  {
-    name: "nsCertType",
-    client: true,
-    server: true,
-    email: true,
-    objsign: true,
-    sslCA: true,
-    emailCA: true,
-    objCA: true,
-  },
-  {
-    name: "subjectKeyIdentifier",
-  },
-];
+function pemFromDer(label: string, data: ArrayBuffer): string {
+  const base64 = Buffer.from(data).toString("base64");
+  const lines = base64.match(/.{1,64}/g) || [];
+  return `-----BEGIN ${label}-----\n${lines.join("\n")}\n-----END ${label}-----\n`;
+}
 
-const ServerAttrs = [
-  {
-    name: "countryName",
-    value: "Internet",
-  },
-  {
-    shortName: "ST",
-    value: "Internet",
-  },
-  {
-    name: "localityName",
-    value: "Internet",
-  },
-  {
-    name: "organizationName",
-    value: "Node MITM Proxy CA",
-  },
-  {
-    shortName: "OU",
-    value: "Node MITM Proxy Server Certificate",
-  },
-];
+function normalizeKeyAlgorithm(
+  value: unknown,
+  fallback: certificate_key_algorithm_t
+): certificate_key_algorithm_t {
+  return value === "ecdsa_p256" || value === "rsa_2048" ? value : fallback;
+}
 
-const ServerExtensions = [
-  {
-    name: "basicConstraints",
-    cA: false,
-  },
-  {
-    name: "keyUsage",
-    keyCertSign: false,
-    digitalSignature: true,
-    nonRepudiation: false,
-    keyEncipherment: true,
-    dataEncipherment: true,
-  },
-  {
-    name: "extKeyUsage",
-    serverAuth: true,
-    clientAuth: true,
-    codeSigning: false,
-    emailProtection: false,
-    timeStamping: false,
-  },
-  {
-    name: "nsCertType",
-    client: true,
-    server: true,
-    email: false,
-    objsign: false,
-    sslCA: false,
-    emailCA: false,
-    objCA: false,
-  },
-  {
-    name: "subjectKeyIdentifier",
-  },
-] as any[];
+function getWebCryptoAlgorithm(algorithm: certificate_key_algorithm_t) {
+  if (algorithm === "ecdsa_p256") {
+    return {
+      name: "ECDSA",
+      namedCurve: "P-256",
+    };
+  }
+  return {
+    name: "RSASSA-PKCS1-v1_5",
+    modulusLength: 2048,
+    publicExponent: new Uint8Array([1, 0, 1]),
+    hash: "SHA-256",
+  };
+}
+
+function getWebCryptoImportAlgorithm(algorithm: certificate_key_algorithm_t) {
+  if (algorithm === "ecdsa_p256") {
+    return {
+      name: "ECDSA",
+      namedCurve: "P-256",
+    };
+  }
+  return {
+    name: "RSASSA-PKCS1-v1_5",
+    hash: "SHA-256",
+  };
+}
+
+async function generateKeyPair(algorithm: certificate_key_algorithm_t) {
+  return await webcrypto.subtle.generateKey(
+    getWebCryptoAlgorithm(algorithm),
+    true,
+    ["sign", "verify"]
+  );
+}
+
+function detectPrivateKeyAlgorithm(privateKeyPem: string): certificate_key_algorithm_t {
+  const privateKey = createPrivateKey(privateKeyPem);
+  if (privateKey.asymmetricKeyType === "rsa") {
+    return "rsa_2048";
+  }
+  if (privateKey.asymmetricKeyType === "ec") {
+    const namedCurve = privateKey.asymmetricKeyDetails?.namedCurve;
+    if (
+      namedCurve === "prime256v1" ||
+      namedCurve === "secp256r1" ||
+      namedCurve === "P-256"
+    ) {
+      return "ecdsa_p256";
+    }
+  }
+  throw new Error(`Unsupported certificate private key type: ${privateKey.asymmetricKeyType || "unknown"}.`);
+}
+
+async function importKeyPairFromPrivatePem(params: {
+  privateKeyPem: string;
+  algorithm: certificate_key_algorithm_t;
+}) {
+  const nodePrivateKey = createPrivateKey(params.privateKeyPem);
+  const nodePublicKey = createPublicKey(nodePrivateKey);
+  const privateKeyDer = nodePrivateKey.export({
+    format: "der",
+    type: "pkcs8",
+  });
+  const publicKeyDer = nodePublicKey.export({
+    format: "der",
+    type: "spki",
+  });
+  const importAlgorithm = getWebCryptoImportAlgorithm(params.algorithm);
+  return {
+    privateKey: await webcrypto.subtle.importKey(
+      "pkcs8",
+      privateKeyDer,
+      importAlgorithm,
+      true,
+      ["sign"]
+    ),
+    publicKey: await webcrypto.subtle.importKey(
+      "spki",
+      publicKeyDer,
+      importAlgorithm,
+      true,
+      ["verify"]
+    ),
+  };
+}
+
+async function exportPrivateKeyPem(privateKey: CryptoKey): Promise<string> {
+  return pemFromDer(
+    "PRIVATE KEY",
+    await webcrypto.subtle.exportKey("pkcs8", privateKey)
+  );
+}
+
+async function exportPublicKeyPem(publicKey: CryptoKey): Promise<string> {
+  return pemFromDer(
+    "PUBLIC KEY",
+    await webcrypto.subtle.exportKey("spki", publicKey)
+  );
+}
+
+function createValidityWindow() {
+  const notBefore = new Date();
+  notBefore.setDate(notBefore.getDate() - 1);
+  const notAfter = new Date();
+  notAfter.setFullYear(notBefore.getFullYear() + 1);
+  return { notBefore, notAfter };
+}
 
 export class CA {
   baseCAFolder!: string;
   certsFolder!: string;
   keysFolder!: string;
-  CAcert!: ReturnType<typeof Forge.pki.createCertificate>;
-  CAkeys!: ReturnType<typeof Forge.pki.rsa.generateKeyPair>;
+  CAcert!: X509Certificate;
+  CAkeys!: CryptoKeyPair;
   rootStorage = "disk";
   leafStorage = "disk";
   leafWildcard = "registrable_domain";
+  rootKeyAlgorithm: certificate_key_algorithm_t = DEFAULT_ROOT_KEY_ALGORITHM;
+  leafKeyAlgorithm: certificate_key_algorithm_t = DEFAULT_LEAF_KEY_ALGORITHM;
+  rootKeyAlgorithmWasExplicit = false;
   leafCacheMaxEntries = DEFAULT_LEAF_CACHE_MAX_ENTRIES;
   leafCacheTtlMs = DEFAULT_LEAF_CACHE_TTL_MS;
   leafCache = new Map();
@@ -177,6 +206,16 @@ export class CA {
     ca.rootStorage = rootOptions.storage || "disk";
     ca.leafStorage = leafOptions.storage || "disk";
     ca.leafWildcard = leafOptions.wildcard || "registrable_domain";
+    ca.rootKeyAlgorithmWasExplicit =
+      typeof rootOptions.keyAlgorithm !== "undefined";
+    ca.rootKeyAlgorithm = normalizeKeyAlgorithm(
+      rootOptions.keyAlgorithm,
+      DEFAULT_ROOT_KEY_ALGORITHM
+    );
+    ca.leafKeyAlgorithm = normalizeKeyAlgorithm(
+      leafOptions.keyAlgorithm,
+      DEFAULT_LEAF_KEY_ALGORITHM
+    );
     ca.leafCacheMaxEntries = CA.normalizePositiveNumber(
       leafCacheOptions.maxEntries,
       DEFAULT_LEAF_CACHE_MAX_ENTRIES
@@ -223,22 +262,19 @@ export class CA {
   }
 
   randomSerialNumber() {
-    // generate random 16 bytes hex string
-    let sn = "";
-    for (let i = 0; i < 4; i++) {
-      sn += `00000000${Math.floor(Math.random() * 256 ** 4).toString(
-        16
-      )}`.slice(-8);
-    }
-    return sn;
+    return randomBytes(16).toString("hex");
   }
 
   getPem() {
-    return pki.certificateToPem(this.CAcert);
+    return this.CAcert.toString("pem");
   }
 
   getStorage() {
     return this.rootStorage;
+  }
+
+  getRootKeyAlgorithm() {
+    return this.rootKeyAlgorithm;
   }
 
   generateCA(
@@ -248,23 +284,29 @@ export class CA {
     ) => void
   ) {
     const self = this;
-    pki.rsa.generateKeyPair({ bits: 2048 }, (err, keys) => {
-      if (err) {
-        return callback(err);
-      }
-      const cert = pki.createCertificate();
-      cert.publicKey = keys.publicKey;
-      cert.serialNumber = self.randomSerialNumber();
-      cert.validity.notBefore = new Date();
-      cert.validity.notBefore.setDate(cert.validity.notBefore.getDate() - 1);
-      cert.validity.notAfter = new Date();
-      cert.validity.notAfter.setFullYear(
-        cert.validity.notBefore.getFullYear() + 1
-      );
-      cert.setSubject(CAattrs);
-      cert.setIssuer(CAattrs);
-      cert.setExtensions(CAextensions);
-      cert.sign(keys.privateKey, md.sha256.create());
+    (async () => {
+      const keys = await generateKeyPair(self.rootKeyAlgorithm);
+      const validity = createValidityWindow();
+      const cert = await X509CertificateGenerator.createSelfSigned({
+        serialNumber: self.randomSerialNumber(),
+        name: ROOT_SUBJECT,
+        keys,
+        notBefore: validity.notBefore,
+        notAfter: validity.notAfter,
+        extensions: [
+          new BasicConstraintsExtension(true, undefined, true),
+          new KeyUsagesExtension(
+            KeyUsageFlags.keyCertSign |
+              KeyUsageFlags.cRLSign |
+              KeyUsageFlags.digitalSignature,
+            true
+          ),
+          await SubjectKeyIdentifierExtension.create(keys.publicKey),
+        ],
+      });
+      const certPem = cert.toString("pem");
+      const keyPrivatePem = await exportPrivateKeyPem(keys.privateKey);
+      const keyPublicPem = await exportPublicKeyPem(keys.publicKey);
       self.CAcert = cert;
       self.CAkeys = keys;
       if (self.rootStorage === "memory") {
@@ -275,21 +317,21 @@ export class CA {
         FS.writeFile.bind(
           null,
           path.join(self.certsFolder, "ca.pem"),
-          pki.certificateToPem(cert)
+          certPem
         ),
         FS.writeFile.bind(
           null,
           path.join(self.keysFolder, "ca.private.key"),
-          pki.privateKeyToPem(keys.privateKey)
+          keyPrivatePem
         ),
         FS.writeFile.bind(
           null,
           path.join(self.keysFolder, "ca.public.key"),
-          pki.publicKeyToPem(keys.publicKey)
+          keyPublicPem
         ),
       ];
       async.parallel(tasks, callback);
-    });
+    })().catch((error) => callback(error));
   }
 
   loadCA(callback: Function) {
@@ -323,105 +365,114 @@ export class CA {
         if (err) {
           return callback(err);
         }
-        self.CAcert = pki.certificateFromPem(results!.certPEM);
-        self.CAkeys = {
-          privateKey: pki.privateKeyFromPem(results!.keyPrivatePEM),
-          publicKey: pki.publicKeyFromPem(results!.keyPublicPEM),
-        };
-        return callback();
+        (async () => {
+          const detectedAlgorithm = detectPrivateKeyAlgorithm(
+            results!.keyPrivatePEM
+          );
+          if (
+            self.rootKeyAlgorithmWasExplicit &&
+            detectedAlgorithm !== self.rootKeyAlgorithm
+          ) {
+            throw new Error(
+              `Existing root CA key algorithm is ${detectedAlgorithm}, but ${self.rootKeyAlgorithm} was requested. Use a different ssl_ca_dir or remove the existing CA files.`
+            );
+          }
+          self.rootKeyAlgorithm = detectedAlgorithm;
+          self.CAcert = new X509Certificate(results!.certPEM);
+          self.CAkeys = await importKeyPairFromPrivatePem({
+            privateKeyPem: results!.keyPrivatePEM,
+            algorithm: detectedAlgorithm,
+          });
+          return callback();
+        })().catch((error) => callback(error));
       }
     );
   }
 
   generateServerCertificateKeys(hosts: string | string[], cb) {
     const self = this;
-    if (typeof hosts === "string") {
-      hosts = [hosts];
-    }
-    const mainHost = hosts[0];
-    const keysServer = pki.rsa.generateKeyPair(2048);
-    const certServer = pki.createCertificate();
-    certServer.publicKey = keysServer.publicKey;
-    certServer.serialNumber = this.randomSerialNumber();
-    certServer.validity.notBefore = new Date();
-    certServer.validity.notBefore.setDate(
-      certServer.validity.notBefore.getDate() - 1
-    );
-    certServer.validity.notAfter = new Date();
-    certServer.validity.notAfter.setFullYear(
-      certServer.validity.notBefore.getFullYear() + 1
-    );
-    const attrsServer = ServerAttrs.slice(0);
-    attrsServer.unshift({
-      name: "commonName",
-      value: mainHost,
-    });
-    certServer.setSubject(attrsServer);
-    certServer.setIssuer(this.CAcert.issuer.attributes);
-    certServer.setExtensions(
-      ServerExtensions.concat([
-        {
-          name: "subjectAltName",
-          altNames: hosts.map((host) => {
-            if (host.match(/^[\d.]+$/)) {
-              return { type: 7, ip: host };
-            }
-            return { type: 2, value: host };
-          }),
-        },
-      ])
-    );
-    certServer.sign(this.CAkeys.privateKey, md.sha256.create());
-    const certPem = pki.certificateToPem(certServer);
-    const keyPrivatePem = pki.privateKeyToPem(keysServer.privateKey);
-    const keyPublicPem = pki.publicKeyToPem(keysServer.publicKey);
-    if (this.leafStorage === "disk") {
-      FS.writeFile(
-        `${this.certsFolder}/${mainHost.replace(/\*/g, "_")}.pem`,
-        certPem,
-        (error) => {
-          if (error) {
-            console.error(
-              `Failed to save certificate to disk in ${self.certsFolder}`,
-              error
-            );
-          }
-        }
-      );
-      FS.writeFile(
-        `${this.keysFolder}/${mainHost.replace(/\*/g, "_")}.key`,
-        keyPrivatePem,
-        (error) => {
-          if (error) {
-            console.error(
-              `Failed to save private key to disk in ${self.keysFolder}`,
-              error
-            );
-          }
-        }
-      );
-      FS.writeFile(
-        `${this.keysFolder}/${mainHost.replace(/\*/g, "_")}.public.key`,
-        keyPublicPem,
-        (error) => {
-          if (error) {
-            console.error(
-              `Failed to save public key to disk in ${self.keysFolder}`,
-              error
-            );
-          }
-        }
-      );
-    } else {
-      this.storeLeafCertificate({
-        cacheKey: this.getLeafCertificateIdentity(mainHost).cacheKey,
-        certPem,
-        keyPem: keyPrivatePem,
-        hosts,
+    (async () => {
+      if (typeof hosts === "string") {
+        hosts = [hosts];
+      }
+      const mainHost = hosts[0];
+      const keysServer = await generateKeyPair(this.leafKeyAlgorithm);
+      const validity = createValidityWindow();
+      const keyUsage =
+        this.leafKeyAlgorithm === "rsa_2048"
+          ? KeyUsageFlags.digitalSignature | KeyUsageFlags.keyEncipherment
+          : KeyUsageFlags.digitalSignature;
+      const certServer = await X509CertificateGenerator.create({
+        serialNumber: this.randomSerialNumber(),
+        subject: `CN=${mainHost},${LEAF_SUBJECT_SUFFIX}`,
+        issuer: this.CAcert.subjectName,
+        publicKey: keysServer.publicKey,
+        signingKey: this.CAkeys.privateKey,
+        notBefore: validity.notBefore,
+        notAfter: validity.notAfter,
+        extensions: [
+          new BasicConstraintsExtension(false, undefined, true),
+          new KeyUsagesExtension(keyUsage, true),
+          new ExtendedKeyUsageExtension([ExtendedKeyUsage.serverAuth]),
+          new SubjectAlternativeNameExtension(
+            hosts.map((host) =>
+              isIP(host) ? { type: IP, value: host } : { type: DNS, value: host }
+            )
+          ),
+          await SubjectKeyIdentifierExtension.create(keysServer.publicKey),
+        ],
       });
-    }
-    // returns synchronously even before files get written to disk
-    cb(certPem, keyPrivatePem);
+      const certPem = certServer.toString("pem");
+      const keyPrivatePem = await exportPrivateKeyPem(keysServer.privateKey);
+      const keyPublicPem = await exportPublicKeyPem(keysServer.publicKey);
+      const identity = this.getLeafCertificateIdentity(mainHost);
+      if (this.leafStorage === "disk") {
+        FS.writeFile(
+          `${this.certsFolder}/${identity.fileName}.pem`,
+          certPem,
+          (error) => {
+            if (error) {
+              console.error(
+                `Failed to save certificate to disk in ${self.certsFolder}`,
+                error
+              );
+            }
+          }
+        );
+        FS.writeFile(
+          `${this.keysFolder}/${identity.fileName}.key`,
+          keyPrivatePem,
+          (error) => {
+            if (error) {
+              console.error(
+                `Failed to save private key to disk in ${self.keysFolder}`,
+                error
+              );
+            }
+          }
+        );
+        FS.writeFile(
+          `${this.keysFolder}/${identity.fileName}.public.key`,
+          keyPublicPem,
+          (error) => {
+            if (error) {
+              console.error(
+                `Failed to save public key to disk in ${self.keysFolder}`,
+                error
+              );
+            }
+          }
+        );
+      } else {
+        this.storeLeafCertificate({
+          cacheKey: identity.cacheKey,
+          certPem,
+          keyPem: keyPrivatePem,
+          hosts,
+        });
+      }
+      cb(certPem, keyPrivatePem);
+    })().catch((error) => cb(undefined, undefined, error));
   }
 
   getCACertPath() {
@@ -486,18 +537,25 @@ export class CA {
     }
 
     return {
-      cacheKey: `wildcard:${domain}`,
-      fileName: `_.${domain}`,
+      cacheKey: `${this.leafKeyAlgorithm}:wildcard:${domain}`,
+      fileName: this.getLeafCertificateFileName(`_.${domain}`),
       hosts: [domain, `*.${domain}`],
     };
   }
 
   getExactLeafCertificateIdentity(hostname) {
     return {
-      cacheKey: `host:${hostname}`,
-      fileName: hostname.replace(/\*/g, "_"),
+      cacheKey: `${this.leafKeyAlgorithm}:host:${hostname}`,
+      fileName: this.getLeafCertificateFileName(hostname.replace(/\*/g, "_")),
       hosts: [hostname],
     };
+  }
+
+  getLeafCertificateFileName(baseName) {
+    if (this.leafKeyAlgorithm === "rsa_2048") {
+      return baseName;
+    }
+    return `${baseName}.${this.leafKeyAlgorithm}`;
   }
 
   getCachedLeafCertificate(cacheKey) {

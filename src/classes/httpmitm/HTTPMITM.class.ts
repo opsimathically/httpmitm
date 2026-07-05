@@ -191,10 +191,15 @@ function NormalizeCertificateOptions(params: {
   certificates: httpmitm_certificate_options_t | undefined;
 }):
   | {
-      rootCA?: { storage?: "disk" | "memory"; sslCaDir?: string };
+      rootCA?: {
+        storage?: "disk" | "memory";
+        sslCaDir?: string;
+        keyAlgorithm?: "rsa_2048" | "ecdsa_p256";
+      };
       leafCertificates?: {
         storage?: "disk" | "memory";
         wildcard?: "registrable_domain" | "exact_host";
+        keyAlgorithm?: "rsa_2048" | "ecdsa_p256";
         cache?: { maxEntries?: number; ttlMs?: number };
       };
     }
@@ -207,10 +212,12 @@ function NormalizeCertificateOptions(params: {
     rootCA: {
       storage: params.certificates.root_ca?.storage,
       sslCaDir: params.certificates.root_ca?.ssl_ca_dir || params.ssl_ca_dir,
+      keyAlgorithm: params.certificates.root_ca?.key_algorithm,
     },
     leafCertificates: {
       storage: params.certificates.leaf_certificates?.storage,
       wildcard: params.certificates.leaf_certificates?.wildcard,
+      keyAlgorithm: params.certificates.leaf_certificates?.key_algorithm,
       cache: {
         maxEntries: NormalizePositiveNumber({
           value: params.certificates.leaf_certificates?.cache?.max_entries,
@@ -1067,6 +1074,9 @@ export class HTTPMITM {
       ca: {
         cert_pem: proxy_instance.ca.getPem(),
         storage: proxy_instance.ca.getStorage() as "disk" | "memory",
+        key_algorithm: proxy_instance.ca.getRootKeyAlgorithm() as
+          | "rsa_2048"
+          | "ecdsa_p256",
         cert_path: proxy_instance.ca.getCACertPath(),
       },
       close: async () => {

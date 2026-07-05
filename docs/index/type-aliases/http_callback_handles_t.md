@@ -8,7 +8,7 @@
 
 > **http\_callback\_handles\_t** = `object`
 
-Defined in: [classes/httpmitm/httpmitm.types.ts:190](https://github.com/opsimathically/httpmitm/blob/11bc0beac1e739d2243eb4c7bd876900a03c12d4/src/classes/httpmitm/httpmitm.types.ts#L190)
+Defined in: [classes/httpmitm/httpmitm.types.ts:199](https://github.com/opsimathically/httpmitm/blob/907fc22be15c6dd08c90d5c416ed97a5bd7082a8/src/classes/httpmitm/httpmitm.types.ts#L199)
 
 Low-level HTTP handles exposed for advanced integrations.
 
@@ -21,7 +21,7 @@ request, or response access is required.
 
 > **client\_to\_proxy\_request**: `IncomingMessage`
 
-Defined in: [classes/httpmitm/httpmitm.types.ts:193](https://github.com/opsimathically/httpmitm/blob/11bc0beac1e739d2243eb4c7bd876900a03c12d4/src/classes/httpmitm/httpmitm.types.ts#L193)
+Defined in: [classes/httpmitm/httpmitm.types.ts:202](https://github.com/opsimathically/httpmitm/blob/907fc22be15c6dd08c90d5c416ed97a5bd7082a8/src/classes/httpmitm/httpmitm.types.ts#L202)
 
 ***
 
@@ -29,7 +29,7 @@ Defined in: [classes/httpmitm/httpmitm.types.ts:193](https://github.com/opsimath
 
 > **connect\_request**: `IncomingMessage` \| `undefined`
 
-Defined in: [classes/httpmitm/httpmitm.types.ts:192](https://github.com/opsimathically/httpmitm/blob/11bc0beac1e739d2243eb4c7bd876900a03c12d4/src/classes/httpmitm/httpmitm.types.ts#L192)
+Defined in: [classes/httpmitm/httpmitm.types.ts:201](https://github.com/opsimathically/httpmitm/blob/907fc22be15c6dd08c90d5c416ed97a5bd7082a8/src/classes/httpmitm/httpmitm.types.ts#L201)
 
 ***
 
@@ -37,7 +37,7 @@ Defined in: [classes/httpmitm/httpmitm.types.ts:192](https://github.com/opsimath
 
 > **proxy\_to\_client\_response**: `ServerResponse`
 
-Defined in: [classes/httpmitm/httpmitm.types.ts:194](https://github.com/opsimathically/httpmitm/blob/11bc0beac1e739d2243eb4c7bd876900a03c12d4/src/classes/httpmitm/httpmitm.types.ts#L194)
+Defined in: [classes/httpmitm/httpmitm.types.ts:203](https://github.com/opsimathically/httpmitm/blob/907fc22be15c6dd08c90d5c416ed97a5bd7082a8/src/classes/httpmitm/httpmitm.types.ts#L203)
 
 ***
 
@@ -45,7 +45,7 @@ Defined in: [classes/httpmitm/httpmitm.types.ts:194](https://github.com/opsimath
 
 > **proxy\_to\_server\_request**: `IContext`\[`"proxyToServerRequest"`\]
 
-Defined in: [classes/httpmitm/httpmitm.types.ts:195](https://github.com/opsimathically/httpmitm/blob/11bc0beac1e739d2243eb4c7bd876900a03c12d4/src/classes/httpmitm/httpmitm.types.ts#L195)
+Defined in: [classes/httpmitm/httpmitm.types.ts:204](https://github.com/opsimathically/httpmitm/blob/907fc22be15c6dd08c90d5c416ed97a5bd7082a8/src/classes/httpmitm/httpmitm.types.ts#L204)
 
 ***
 
@@ -53,7 +53,7 @@ Defined in: [classes/httpmitm/httpmitm.types.ts:195](https://github.com/opsimath
 
 > **raw\_context**: `IContext`
 
-Defined in: [classes/httpmitm/httpmitm.types.ts:191](https://github.com/opsimathically/httpmitm/blob/11bc0beac1e739d2243eb4c7bd876900a03c12d4/src/classes/httpmitm/httpmitm.types.ts#L191)
+Defined in: [classes/httpmitm/httpmitm.types.ts:200](https://github.com/opsimathically/httpmitm/blob/907fc22be15c6dd08c90d5c416ed97a5bd7082a8/src/classes/httpmitm/httpmitm.types.ts#L200)
 
 ***
 
@@ -61,4 +61,4 @@ Defined in: [classes/httpmitm/httpmitm.types.ts:191](https://github.com/opsimath
 
 > **server\_to\_proxy\_response**: `IContext`\[`"serverToProxyResponse"`\]
 
-Defined in: [classes/httpmitm/httpmitm.types.ts:196](https://github.com/opsimathically/httpmitm/blob/11bc0beac1e739d2243eb4c7bd876900a03c12d4/src/classes/httpmitm/httpmitm.types.ts#L196)
+Defined in: [classes/httpmitm/httpmitm.types.ts:205](https://github.com/opsimathically/httpmitm/blob/907fc22be15c6dd08c90d5c416ed97a5bd7082a8/src/classes/httpmitm/httpmitm.types.ts#L205)

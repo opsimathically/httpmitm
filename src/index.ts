@@ -44,6 +44,7 @@ export type {
   httpmitm_logger_t,
   httpmitm_ca_material_t,
   httpmitm_certificate_cache_options_t,
+  httpmitm_certificate_key_algorithm_t,
   httpmitm_certificate_options_t,
   httpmitm_certificate_storage_t,
   httpmitm_leaf_certificate_wildcard_t,
@@ -65,3 +66,10 @@ export type {
  * integrations. Prefer `HTTPMITM` for normal package usage.
  */
 export { Proxy } from "./forked_code/proxy";
+export type {
+  IProxyCertificateCacheOptions,
+  IProxyCertificateKeyAlgorithm,
+  IProxyCertificateOptions,
+  IProxyCertificateStorage,
+  IProxyLeafCertificateWildcard,
+} from "./forked_code/types";

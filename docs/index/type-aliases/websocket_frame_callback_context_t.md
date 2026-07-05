@@ -8,7 +8,7 @@
 
 > **websocket\_frame\_callback\_context\_t** = [`websocket_callback_context_base_t`](websocket_callback_context_base_t.md) & `object`
 
-Defined in: [classes/httpmitm/httpmitm.types.ts:310](https://github.com/opsimathically/httpmitm/blob/11bc0beac1e739d2243eb4c7bd876900a03c12d4/src/classes/httpmitm/httpmitm.types.ts#L310)
+Defined in: [classes/httpmitm/httpmitm.types.ts:319](https://github.com/opsimathically/httpmitm/blob/907fc22be15c6dd08c90d5c416ed97a5bd7082a8/src/classes/httpmitm/httpmitm.types.ts#L319)
 
 Context passed to WebSocket frame callbacks.
 

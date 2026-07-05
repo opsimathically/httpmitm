@@ -8,7 +8,7 @@
 
 > **websocket\_close\_callback\_context\_t** = [`websocket_callback_context_base_t`](websocket_callback_context_base_t.md) & `object`
 
-Defined in: [classes/httpmitm/httpmitm.types.ts:320](https://github.com/opsimathically/httpmitm/blob/11bc0beac1e739d2243eb4c7bd876900a03c12d4/src/classes/httpmitm/httpmitm.types.ts#L320)
+Defined in: [classes/httpmitm/httpmitm.types.ts:329](https://github.com/opsimathically/httpmitm/blob/907fc22be15c6dd08c90d5c416ed97a5bd7082a8/src/classes/httpmitm/httpmitm.types.ts#L329)
 
 Context passed to `websocket.onConnectionTerminated`.
 

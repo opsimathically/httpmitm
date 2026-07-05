@@ -8,7 +8,7 @@
 
 > **plugin\_http\_response\_headers\_callback\_t** = (`params`) => `Promise`\<[`plugin_http_interception_result_t`](plugin_http_interception_result_t.md) \| `void`\>
 
-Defined in: [classes/httpmitm/httpmitm.types.ts:380](https://github.com/opsimathically/httpmitm/blob/11bc0beac1e739d2243eb4c7bd876900a03c12d4/src/classes/httpmitm/httpmitm.types.ts#L380)
+Defined in: [classes/httpmitm/httpmitm.types.ts:389](https://github.com/opsimathically/httpmitm/blob/907fc22be15c6dd08c90d5c416ed97a5bd7082a8/src/classes/httpmitm/httpmitm.types.ts#L389)
 
 Plugin callback for HTTP response headers.
 

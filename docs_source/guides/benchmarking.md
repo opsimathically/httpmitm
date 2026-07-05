@@ -26,7 +26,7 @@ node --expose-gc benchmarks/run-benchmarks.mjs
 - HTTP header callback overhead.
 - Single-flight HTTP latency distribution.
 - Buffered request and response body memory behavior.
-- HTTPS exact-host memory leaf certificate generation rate.
+- HTTPS exact-host memory leaf certificate generation rate for ECDSA P-256 and RSA-2048 leaves.
 - HTTPS registrable-domain wildcard certificate reuse.
 - WebSocket round-trip frame rate with and without awaited callbacks.
 - Proxy start plus awaited close lifecycle timing.

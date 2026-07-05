@@ -11,6 +11,11 @@
 
 - Complete: HTTPS CONNECT/TLS interception with generated CA certificate trust.
 - Complete: disk and memory root/leaf certificate storage modes.
+- Complete: default RSA root plus ECDSA P-256 leaf certificate generation.
+- Complete: existing legacy RSA disk root CA loading and reuse.
+- Complete: explicit RSA root/RSA leaf and explicit ECDSA root/ECDSA leaf HTTPS handshakes.
+- Complete: disk root key algorithm mismatch failure.
+- Complete: RSA and ECDSA disk leaf cache filename separation.
 - Complete: registrable-domain wildcard reuse, exact-host fallback, leaf cache TTL/LRU, and concurrent generation locking.
 - Complete: keep-alive repeated requests through one proxy instance.
 - Complete: concurrent delayed callbacks without cross-request leakage.

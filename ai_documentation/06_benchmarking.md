@@ -18,7 +18,7 @@ The benchmark suite provides local performance diagnostics for `@opsimathically/
 - HTTP header callback overhead.
 - Single-flight proxy latency.
 - Buffered request and response body memory behavior.
-- HTTPS exact-host memory leaf certificate generation rate.
+- HTTPS exact-host memory leaf certificate generation rate for ECDSA P-256 and RSA-2048 leaves.
 - HTTPS registrable-domain wildcard certificate reuse.
 - WebSocket frame rate with and without callbacks.
 - Proxy start and awaited close lifecycle timing.

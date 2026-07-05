@@ -15,8 +15,6 @@
     "IContext",
     "ICreateServerCallback",
     "IProxy",
-    "IProxyCertificateStorage",
-    "IProxyLeafCertificateWildcard",
     "IProxyOptions",
     "IProxySSLServer",
     "IWebSocketContext",

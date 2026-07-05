@@ -33,6 +33,8 @@ Logger metadata is intentionally structured and should not include full payload 
 
 Root CA and leaf certificates can be disk-backed or memory-backed. Disk-backed root CA mode provides stable client trust across restarts. Memory-backed root CA mode writes no CA material to disk, but clients must trust the returned `server.ca.cert_pem` for that process.
 
+Root CA and leaf certificates can use `rsa_2048` or `ecdsa_p256` keys. The default is RSA-2048 for the root CA and ECDSA P-256 for leaf certificates. This preserves broad root-import compatibility while reducing per-host generation cost. Explicit disk root algorithm mismatches fail during startup so an existing trust anchor is not silently replaced with a different key type.
+
 Memory leaf certificates are cached with an LRU/TTL policy. Defaults are `1000` entries and `3_600_000` milliseconds. Use memory leaf storage to avoid unbounded `ssl_ca_dir/certs` and `ssl_ca_dir/keys` growth from per-host certificates.
 
 When `certificates` is omitted, compatibility mode uses disk-backed root CA storage and exact-host disk leaf certificates. When `certificates` is provided, storage defaults remain disk-backed and the leaf wildcard strategy defaults to `registrable_domain`. A memory root with disk leaf storage is supported, but the leaf files are signed by an ephemeral CA and are not durable trust material across process restarts.

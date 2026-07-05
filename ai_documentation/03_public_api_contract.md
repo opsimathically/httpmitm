@@ -24,12 +24,14 @@
 - `logger`: optional structured logger with `debug`, `info`, `warn`, and `error` methods.
 - `certificates.root_ca.storage`: root CA storage backend, `disk` or `memory`. Default: `disk`.
 - `certificates.root_ca.ssl_ca_dir`: disk directory for persisted root CA material. Defaults to `ssl_ca_dir` or `.http-mitm-proxy`.
+- `certificates.root_ca.key_algorithm`: root CA key algorithm, `rsa_2048` or `ecdsa_p256`. Default: `rsa_2048`.
 - `certificates.leaf_certificates.storage`: leaf certificate storage backend, `disk` or `memory`. Default: `disk`.
 - `certificates.leaf_certificates.wildcard`: `registrable_domain` or `exact_host`. Default: `registrable_domain` when `certificates` is configured. When `certificates` is omitted entirely, legacy exact-host disk behavior is preserved.
+- `certificates.leaf_certificates.key_algorithm`: leaf certificate key algorithm, `rsa_2048` or `ecdsa_p256`. Default: `ecdsa_p256`.
 - `certificates.leaf_certificates.cache.max_entries`: in-memory leaf cache max. Default: `1000`.
 - `certificates.leaf_certificates.cache.ttl_ms`: in-memory leaf cache TTL. Default: `3_600_000`.
 
-`HTTPMITM.start(params)` returns `ca.cert_pem`, `ca.storage`, and `ca.cert_path` when root CA storage is disk-backed.
+`HTTPMITM.start(params)` returns `ca.cert_pem`, `ca.storage`, `ca.key_algorithm`, and `ca.cert_path` when root CA storage is disk-backed.
 
 ## Runtime Behavior
 

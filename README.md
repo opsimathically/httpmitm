@@ -169,6 +169,8 @@ HTTPS CONNECT traffic is intercepted by generating a local CA certificate and le
 - Trust `ssl_ca_dir/certs/ca.pem` only in the test client or controlled environment using the proxy.
 - Do not commit, publish, or casually share generated CA private keys.
 
+The default certificate algorithms are conservative where trust stores matter and fast where certificates are generated frequently: the root CA uses RSA-2048, and leaf certificates use ECDSA P-256. Chrome, Firefox, and Node TLS accept an RSA root signing ECDSA leaves. Set `key_algorithm: "rsa_2048"` on `leaf_certificates` if a client or workflow requires RSA leaves, or explicitly set `root_ca.key_algorithm: "ecdsa_p256"` when you want a fully ECDSA chain.
+
 Certificate storage can be controlled independently for the root CA and leaf certificates:
 
 ```typescript
@@ -176,10 +178,11 @@ const server = await httpmitm.start({
   host: "127.0.0.1",
   listen_port: 4444,
   certificates: {
-    root_ca: { storage: "memory" },
+    root_ca: { storage: "memory", key_algorithm: "rsa_2048" },
     leaf_certificates: {
       storage: "memory",
       wildcard: "registrable_domain",
+      key_algorithm: "ecdsa_p256",
       cache: {
         max_entries: 1000,
         ttl_ms: 3_600_000,
@@ -193,14 +196,19 @@ console.log(server.ca.cert_pem);
 
 When the `certificates` object is omitted, compatibility mode stores the root CA and exact-host leaf certificates on disk. When `certificates` is provided, root and leaf storage still default to `disk`, but the leaf wildcard strategy defaults to `registrable_domain`.
 
+If a disk-backed root CA already exists and you explicitly request a different `root_ca.key_algorithm`, startup fails with a clear error. Use a different `ssl_ca_dir` or remove the old CA material when intentionally changing the root algorithm.
+
 Recommended low-disk-churn mode persists the root CA for stable browser trust and keeps leaf certificates in memory:
 
 ```typescript
 await httpmitm.start({
   ssl_ca_dir: "/tmp/httpmitm-ca",
   certificates: {
-    root_ca: { storage: "disk" },
-    leaf_certificates: { storage: "memory" },
+    root_ca: { storage: "disk", key_algorithm: "rsa_2048" },
+    leaf_certificates: {
+      storage: "memory",
+      key_algorithm: "ecdsa_p256",
+    },
   },
 });
 ```

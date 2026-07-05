@@ -81,9 +81,11 @@ function normalizeCertificateOptions(options: IProxyOptions) {
     rootCA: {
       storage: rootCA.storage || "disk",
       sslCaDir,
+      keyAlgorithm: rootCA.keyAlgorithm || "rsa_2048",
     },
     leafCertificates: {
       storage: leafCertificates.storage || "disk",
+      keyAlgorithm: leafCertificates.keyAlgorithm || "ecdsa_p256",
       wildcard:
         leafCertificates.wildcard ||
         (hasCertificateOptions ? "registrable_domain" : "exact_host"),
@@ -832,7 +834,11 @@ export class Proxy implements IProxy {
     callback: ErrorCallback
   ) {
     const hosts = files.hosts || [ctx.hostname];
-    this.ca.generateServerCertificateKeys(hosts, (certPEM, privateKeyPEM) => {
+    this.ca.generateServerCertificateKeys(hosts, (certPEM, privateKeyPEM, err) => {
+      if (err) {
+        callback(err);
+        return;
+      }
       callback(null, {
         certFileData: certPEM,
         keyFileData: privateKeyPEM,

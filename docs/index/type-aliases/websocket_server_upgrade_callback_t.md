@@ -8,7 +8,7 @@
 
 > **websocket\_server\_upgrade\_callback\_t** = (`params`) => `Promise`\<[`websocket_interception_result_t`](websocket_interception_result_t.md) \| `void`\>
 
-Defined in: [classes/httpmitm/httpmitm.types.ts:350](https://github.com/opsimathically/httpmitm/blob/11bc0beac1e739d2243eb4c7bd876900a03c12d4/src/classes/httpmitm/httpmitm.types.ts#L350)
+Defined in: [classes/httpmitm/httpmitm.types.ts:359](https://github.com/opsimathically/httpmitm/blob/907fc22be15c6dd08c90d5c416ed97a5bd7082a8/src/classes/httpmitm/httpmitm.types.ts#L359)
 
 Callback for WebSocket upgrade requests.
 

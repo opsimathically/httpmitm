@@ -71,6 +71,9 @@ export type httpmitm_leaf_certificate_wildcard_t =
   | "registrable_domain"
   | "exact_host";
 
+/** Certificate private/public key algorithm. */
+export type httpmitm_certificate_key_algorithm_t = "rsa_2048" | "ecdsa_p256";
+
 /** In-memory leaf certificate cache limits. */
 export type httpmitm_certificate_cache_options_t = {
   /** Maximum in-memory leaf certificate entries. Default: 1000. */
@@ -92,12 +95,16 @@ export type httpmitm_certificate_options_t = {
     storage?: httpmitm_certificate_storage_t;
     /** Disk directory for persisted root CA material. Defaults to `ssl_ca_dir` or `.http-mitm-proxy`. */
     ssl_ca_dir?: string;
+    /** Root CA key algorithm. Default: `rsa_2048`. */
+    key_algorithm?: httpmitm_certificate_key_algorithm_t;
   };
   leaf_certificates?: {
     /** Leaf certificate storage backend. Default: `disk`. */
     storage?: httpmitm_certificate_storage_t;
     /** Leaf certificate identity strategy. Default: `registrable_domain` when `certificates` is configured; legacy default is `exact_host` when `certificates` is omitted. */
     wildcard?: httpmitm_leaf_certificate_wildcard_t;
+    /** Leaf certificate key algorithm. Default: `ecdsa_p256`. */
+    key_algorithm?: httpmitm_certificate_key_algorithm_t;
     /** In-memory leaf certificate cache options used when leaf storage is `memory`. */
     cache?: httpmitm_certificate_cache_options_t;
   };
@@ -109,6 +116,8 @@ export type httpmitm_ca_material_t = {
   cert_pem: string;
   /** Root CA storage backend used by this server. */
   storage: httpmitm_certificate_storage_t;
+  /** Root CA key algorithm used by this server. */
+  key_algorithm: httpmitm_certificate_key_algorithm_t;
   /** Root CA certificate path when storage is `disk`. */
   cert_path?: string;
 };

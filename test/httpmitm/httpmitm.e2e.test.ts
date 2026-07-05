@@ -1,12 +1,13 @@
 import assert from 'node:assert';
 import { once } from 'node:events';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import http, { type IncomingMessage, type ServerResponse } from 'node:http';
 import https from 'node:https';
 import type { AddressInfo } from 'node:net';
 import net from 'node:net';
 import path from 'node:path';
 import tls from 'node:tls';
+import { X509Certificate as NodeX509Certificate } from 'node:crypto';
 import test from 'node:test';
 import {
   brotliCompressSync,
@@ -40,6 +41,14 @@ type http_proxy_request_result_t = {
   raw_body: Buffer;
   body: string;
 };
+
+function GetCertificatePublicKeyType(params: { cert_pem: string }): string {
+  const key_type = new NodeX509Certificate(
+    params.cert_pem
+  ).publicKey.asymmetricKeyType;
+  assert.ok(key_type);
+  return key_type;
+}
 
 function Delay(params: { ms: number }): Promise<void> {
   return new Promise((resolve) => {
@@ -263,6 +272,53 @@ function GenerateSelfSignedCertificate(): { key: string; cert: string } {
     key: Forge.pki.privateKeyToPem(keys.privateKey),
     cert: Forge.pki.certificateToPem(cert)
   };
+}
+
+function WriteLegacyForgeRootCa(params: { ssl_ca_dir: string }): void {
+  const certs_dir = path.join(params.ssl_ca_dir, 'certs');
+  const keys_dir = path.join(params.ssl_ca_dir, 'keys');
+  mkdirSync(certs_dir, { recursive: true });
+  mkdirSync(keys_dir, { recursive: true });
+
+  const keys = Forge.pki.rsa.generateKeyPair(2048);
+  const cert = Forge.pki.createCertificate();
+  cert.publicKey = keys.publicKey;
+  cert.serialNumber = '02';
+  cert.validity.notBefore = new Date();
+  cert.validity.notBefore.setDate(cert.validity.notBefore.getDate() - 1);
+  cert.validity.notAfter = new Date();
+  cert.validity.notAfter.setFullYear(cert.validity.notBefore.getFullYear() + 1);
+  cert.setSubject([
+    { name: 'commonName', value: 'NodeMITMProxyCA' },
+    { name: 'countryName', value: 'Internet' },
+    { shortName: 'ST', value: 'Internet' },
+    { name: 'localityName', value: 'Internet' },
+    { name: 'organizationName', value: 'Node MITM Proxy CA' },
+    { shortName: 'OU', value: 'CA' }
+  ]);
+  cert.setIssuer(cert.subject.attributes);
+  cert.setExtensions([
+    { name: 'basicConstraints', cA: true, critical: true },
+    {
+      name: 'keyUsage',
+      keyCertSign: true,
+      cRLSign: true,
+      digitalSignature: true,
+      critical: true
+    },
+    { name: 'subjectKeyIdentifier' }
+  ]);
+  cert.sign(keys.privateKey, Forge.md.sha256.create());
+
+  writeFileSync(path.join(certs_dir, 'ca.pem'), Forge.pki.certificateToPem(cert));
+  writeFileSync(
+    path.join(keys_dir, 'ca.private.key'),
+    Forge.pki.privateKeyToPem(keys.privateKey)
+  );
+  writeFileSync(
+    path.join(keys_dir, 'ca.public.key'),
+    Forge.pki.publicKeyToPem(keys.publicKey)
+  );
 }
 
 async function StartHttpsServer(params: {
@@ -1878,6 +1934,7 @@ test('HTTPS CONNECT/TLS traffic is intercepted and can be modified', async () =>
   });
 
   try {
+    assert.equal(mitm_server.ca.key_algorithm, 'rsa_2048');
     const response = await SendHttpsConnectRequestViaProxy({
       proxy_port: mitm_server.listen_port,
       target_port: upstream_server.port,
@@ -1890,11 +1947,26 @@ test('HTTPS CONNECT/TLS traffic is intercepted and can be modified', async () =>
     assert.equal(callback_saw_ssl, true);
     await WaitForPath({ file_path: path.join(ssl_ca_dir, 'certs', 'ca.pem') });
     await WaitForPath({
-      file_path: path.join(ssl_ca_dir, 'certs', 'localhost.pem')
+      file_path: path.join(ssl_ca_dir, 'certs', 'localhost.ecdsa_p256.pem')
     });
     await WaitForPath({
-      file_path: path.join(ssl_ca_dir, 'keys', 'localhost.key')
+      file_path: path.join(ssl_ca_dir, 'keys', 'localhost.ecdsa_p256.key')
     });
+    assert.equal(
+      GetCertificatePublicKeyType({
+        cert_pem: readFileSync(path.join(ssl_ca_dir, 'certs', 'ca.pem'), 'utf8')
+      }),
+      'rsa'
+    );
+    assert.equal(
+      GetCertificatePublicKeyType({
+        cert_pem: readFileSync(
+          path.join(ssl_ca_dir, 'certs', 'localhost.ecdsa_p256.pem'),
+          'utf8'
+        )
+      }),
+      'ec'
+    );
   } finally {
     await mitm_server.close();
     await CloseHttpServer({ server: upstream_server.server });
@@ -1941,6 +2013,63 @@ test('HTTPS disk root with memory leaf certificates avoids per-host leaf files',
     assert.equal(
       existsSync(path.join(ssl_ca_dir, 'keys', 'localhost.key')),
       false
+    );
+  } finally {
+    await mitm_server.close();
+    await CloseHttpServer({ server: upstream_server.server });
+  }
+});
+
+test('HTTPS existing legacy RSA disk root CA is loaded and reused', async () => {
+  const upstream_server = await StartHttpsServer({
+    handler: async (_request, response) => {
+      response.writeHead(200, { 'content-type': 'text/plain' });
+      response.end('legacy-root-upstream');
+    }
+  });
+
+  const ssl_ca_dir = CreateSslCaDir({ test_name: 'legacy_rsa_root_load' });
+  WriteLegacyForgeRootCa({ ssl_ca_dir });
+  const original_ca_pem = readFileSync(
+    path.join(ssl_ca_dir, 'certs', 'ca.pem'),
+    'utf8'
+  );
+
+  const mitm_server = await StartHttpMitm({
+    start_params: {
+      host: '127.0.0.1',
+      listen_port: 0,
+      ssl_ca_dir,
+      https_agent: new https.Agent({ rejectUnauthorized: false }),
+      certificates: {
+        root_ca: { storage: 'disk', key_algorithm: 'rsa_2048' },
+        leaf_certificates: { storage: 'memory' }
+      }
+    }
+  });
+
+  try {
+    const response = await SendHttpsConnectRequestViaProxy({
+      proxy_port: mitm_server.listen_port,
+      target_port: upstream_server.port,
+      ca_cert_path: path.join(ssl_ca_dir, 'certs', 'ca.pem'),
+      path: '/legacy-root'
+    });
+
+    assert.equal(response.status_code, 200);
+    assert.match(response.body, /legacy-root-upstream/);
+    assert.equal(mitm_server.ca.key_algorithm, 'rsa_2048');
+    assert.equal(
+      readFileSync(path.join(ssl_ca_dir, 'certs', 'ca.pem'), 'utf8'),
+      original_ca_pem
+    );
+    assert.equal(
+      GetCertificatePublicKeyType({
+        cert_pem: mitm_server.proxy.ca.leafCache.get(
+          'ecdsa_p256:host:localhost'
+        ).certPem
+      }),
+      'ec'
     );
   } finally {
     await mitm_server.close();
@@ -2037,7 +2166,7 @@ test('HTTPS memory leaf certificates reuse registrable-domain wildcard cache ent
     assert.match(second_response.body, /wildcard-upstream/);
     assert.deepEqual(
       [...mitm_server.proxy.ca.leafCache.keys()],
-      ['wildcard:example.com']
+      ['ecdsa_p256:wildcard:example.com']
     );
   } finally {
     await mitm_server.close();
@@ -2089,8 +2218,8 @@ test('HTTPS memory leaf certificates use exact-host fallback for localhost and I
     });
 
     assert.deepEqual([...mitm_server.proxy.ca.leafCache.keys()].sort(), [
-      'host:127.0.0.1',
-      'host:localhost'
+      'ecdsa_p256:host:127.0.0.1',
+      'ecdsa_p256:host:localhost'
     ]);
   } finally {
     await mitm_server.close();
@@ -2133,7 +2262,7 @@ test('HTTPS memory leaf cache enforces TTL and LRU limits', async () => {
       path: '/first'
     });
     const first_cert_pem = mitm_server.proxy.ca.leafCache.get(
-      'host:first.example.com'
+      'ecdsa_p256:host:first.example.com'
     ).certPem;
 
     await CloseGeneratedSslServers({ proxy: mitm_server.proxy });
@@ -2148,7 +2277,7 @@ test('HTTPS memory leaf cache enforces TTL and LRU limits', async () => {
       path: '/first-again'
     });
     const regenerated_cert_pem = mitm_server.proxy.ca.leafCache.get(
-      'host:first.example.com'
+      'ecdsa_p256:host:first.example.com'
     ).certPem;
     assert.notEqual(regenerated_cert_pem, first_cert_pem);
 
@@ -2163,7 +2292,7 @@ test('HTTPS memory leaf cache enforces TTL and LRU limits', async () => {
     });
     assert.deepEqual(
       [...mitm_server.proxy.ca.leafCache.keys()],
-      ['host:second.example.com']
+      ['ecdsa_p256:host:second.example.com']
     );
   } finally {
     await mitm_server.close();
@@ -2222,10 +2351,230 @@ test('HTTPS concurrent memory leaf requests generate one certificate per cache k
     assert.equal(generate_count, 1);
     assert.deepEqual(
       [...mitm_server.proxy.ca.leafCache.keys()],
-      ['host:race.example.com']
+      ['ecdsa_p256:host:race.example.com']
     );
   } finally {
     await mitm_server.close();
+    await CloseHttpServer({ server: upstream_server.server });
+  }
+});
+
+test('HTTPS RSA root and RSA leaf certificates work when explicitly configured', async () => {
+  const upstream_server = await StartHttpsServer({
+    handler: async (_request, response) => {
+      response.writeHead(200, { 'content-type': 'text/plain' });
+      response.end('rsa-upstream');
+    }
+  });
+
+  const ssl_ca_dir = CreateSslCaDir({ test_name: 'rsa_root_rsa_leaf' });
+  const mitm_server = await StartHttpMitm({
+    start_params: {
+      host: '127.0.0.1',
+      listen_port: 0,
+      ssl_ca_dir,
+      https_agent: new https.Agent({ rejectUnauthorized: false }),
+      certificates: {
+        root_ca: { storage: 'disk', key_algorithm: 'rsa_2048' },
+        leaf_certificates: {
+          storage: 'disk',
+          wildcard: 'exact_host',
+          key_algorithm: 'rsa_2048'
+        }
+      }
+    }
+  });
+
+  try {
+    const response = await SendHttpsConnectRequestViaProxy({
+      proxy_port: mitm_server.listen_port,
+      target_port: upstream_server.port,
+      ca_cert_path: path.join(ssl_ca_dir, 'certs', 'ca.pem'),
+      path: '/rsa'
+    });
+
+    assert.equal(response.status_code, 200);
+    assert.match(response.body, /rsa-upstream/);
+    await WaitForPath({ file_path: path.join(ssl_ca_dir, 'certs', 'localhost.pem') });
+    assert.equal(mitm_server.ca.key_algorithm, 'rsa_2048');
+    assert.equal(
+      GetCertificatePublicKeyType({
+        cert_pem: readFileSync(path.join(ssl_ca_dir, 'certs', 'localhost.pem'), 'utf8')
+      }),
+      'rsa'
+    );
+  } finally {
+    await mitm_server.close();
+    await CloseHttpServer({ server: upstream_server.server });
+  }
+});
+
+test('HTTPS ECDSA root and ECDSA leaf certificates work when explicitly configured', async () => {
+  const upstream_server = await StartHttpsServer({
+    handler: async (_request, response) => {
+      response.writeHead(200, { 'content-type': 'text/plain' });
+      response.end('ecdsa-root-upstream');
+    }
+  });
+
+  const mitm_server = await StartHttpMitm({
+    start_params: {
+      host: '127.0.0.1',
+      listen_port: 0,
+      https_agent: new https.Agent({ rejectUnauthorized: false }),
+      certificates: {
+        root_ca: { storage: 'memory', key_algorithm: 'ecdsa_p256' },
+        leaf_certificates: {
+          storage: 'memory',
+          wildcard: 'exact_host',
+          key_algorithm: 'ecdsa_p256'
+        }
+      }
+    }
+  });
+
+  try {
+    const response = await SendHttpsConnectRequestViaProxy({
+      proxy_port: mitm_server.listen_port,
+      target_port: upstream_server.port,
+      ca_cert_pem: mitm_server.ca.cert_pem,
+      path: '/ecdsa-root'
+    });
+
+    assert.equal(response.status_code, 200);
+    assert.match(response.body, /ecdsa-root-upstream/);
+    assert.equal(mitm_server.ca.key_algorithm, 'ecdsa_p256');
+    assert.equal(
+      GetCertificatePublicKeyType({ cert_pem: mitm_server.ca.cert_pem }),
+      'ec'
+    );
+    assert.equal(
+      GetCertificatePublicKeyType({
+        cert_pem: mitm_server.proxy.ca.leafCache.get(
+          'ecdsa_p256:host:localhost'
+        ).certPem
+      }),
+      'ec'
+    );
+  } finally {
+    await mitm_server.close();
+    await CloseHttpServer({ server: upstream_server.server });
+  }
+});
+
+test('HTTPS disk root algorithm mismatch fails clearly', async () => {
+  const ssl_ca_dir = CreateSslCaDir({ test_name: 'root_algorithm_mismatch' });
+  const first_server = await StartHttpMitm({
+    start_params: {
+      host: '127.0.0.1',
+      listen_port: 0,
+      ssl_ca_dir,
+      certificates: {
+        root_ca: { storage: 'disk', key_algorithm: 'rsa_2048' },
+        leaf_certificates: { storage: 'memory' }
+      }
+    }
+  });
+  await first_server.close();
+
+  await assert.rejects(
+    StartHttpMitm({
+      start_params: {
+        host: '127.0.0.1',
+        listen_port: 0,
+        ssl_ca_dir,
+        certificates: {
+          root_ca: { storage: 'disk', key_algorithm: 'ecdsa_p256' },
+          leaf_certificates: { storage: 'memory' }
+        }
+      }
+    }),
+    /Existing root CA key algorithm is rsa_2048, but ecdsa_p256 was requested/
+  );
+});
+
+test('HTTPS disk RSA and ECDSA leaf certificate files do not collide', async () => {
+  const upstream_server = await StartHttpsServer({
+    handler: async (_request, response) => {
+      response.writeHead(200, { 'content-type': 'text/plain' });
+      response.end('leaf-collision-upstream');
+    }
+  });
+
+  const ssl_ca_dir = CreateSslCaDir({ test_name: 'leaf_algorithm_collision' });
+  const rsa_server = await StartHttpMitm({
+    start_params: {
+      host: '127.0.0.1',
+      listen_port: 0,
+      ssl_ca_dir,
+      https_agent: new https.Agent({ rejectUnauthorized: false }),
+      certificates: {
+        root_ca: { storage: 'disk', key_algorithm: 'rsa_2048' },
+        leaf_certificates: {
+          storage: 'disk',
+          wildcard: 'exact_host',
+          key_algorithm: 'rsa_2048'
+        }
+      }
+    }
+  });
+
+  try {
+    await SendHttpsConnectRequestViaProxy({
+      proxy_port: rsa_server.listen_port,
+      target_port: upstream_server.port,
+      ca_cert_path: path.join(ssl_ca_dir, 'certs', 'ca.pem'),
+      path: '/rsa-leaf'
+    });
+    await WaitForPath({ file_path: path.join(ssl_ca_dir, 'certs', 'localhost.pem') });
+  } finally {
+    await rsa_server.close();
+  }
+
+  const ecdsa_server = await StartHttpMitm({
+    start_params: {
+      host: '127.0.0.1',
+      listen_port: 0,
+      ssl_ca_dir,
+      https_agent: new https.Agent({ rejectUnauthorized: false }),
+      certificates: {
+        root_ca: { storage: 'disk', key_algorithm: 'rsa_2048' },
+        leaf_certificates: {
+          storage: 'disk',
+          wildcard: 'exact_host',
+          key_algorithm: 'ecdsa_p256'
+        }
+      }
+    }
+  });
+
+  try {
+    await SendHttpsConnectRequestViaProxy({
+      proxy_port: ecdsa_server.listen_port,
+      target_port: upstream_server.port,
+      ca_cert_path: path.join(ssl_ca_dir, 'certs', 'ca.pem'),
+      path: '/ecdsa-leaf'
+    });
+    await WaitForPath({
+      file_path: path.join(ssl_ca_dir, 'certs', 'localhost.ecdsa_p256.pem')
+    });
+    assert.equal(
+      GetCertificatePublicKeyType({
+        cert_pem: readFileSync(path.join(ssl_ca_dir, 'certs', 'localhost.pem'), 'utf8')
+      }),
+      'rsa'
+    );
+    assert.equal(
+      GetCertificatePublicKeyType({
+        cert_pem: readFileSync(
+          path.join(ssl_ca_dir, 'certs', 'localhost.ecdsa_p256.pem'),
+          'utf8'
+        )
+      }),
+      'ec'
+    );
+  } finally {
+    await ecdsa_server.close();
     await CloseHttpServer({ server: upstream_server.server });
   }
 });

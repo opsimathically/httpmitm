@@ -8,7 +8,7 @@
 
 > **plugin\_http\_response\_data\_callback\_t** = (`params`) => `Promise`\<[`plugin_http_interception_result_t`](plugin_http_interception_result_t.md) \| `void`\>
 
-Defined in: [classes/httpmitm/httpmitm.types.ts:385](https://github.com/opsimathically/httpmitm/blob/11bc0beac1e739d2243eb4c7bd876900a03c12d4/src/classes/httpmitm/httpmitm.types.ts#L385)
+Defined in: [classes/httpmitm/httpmitm.types.ts:394](https://github.com/opsimathically/httpmitm/blob/907fc22be15c6dd08c90d5c416ed97a5bd7082a8/src/classes/httpmitm/httpmitm.types.ts#L394)
 
 Plugin callback for buffered HTTP response body data.
 

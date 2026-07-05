@@ -8,7 +8,7 @@
 
 > **http\_request\_metadata\_t** = `object`
 
-Defined in: [classes/httpmitm/httpmitm.types.ts:169](https://github.com/opsimathically/httpmitm/blob/11bc0beac1e739d2243eb4c7bd876900a03c12d4/src/classes/httpmitm/httpmitm.types.ts#L169)
+Defined in: [classes/httpmitm/httpmitm.types.ts:178](https://github.com/opsimathically/httpmitm/blob/907fc22be15c6dd08c90d5c416ed97a5bd7082a8/src/classes/httpmitm/httpmitm.types.ts#L178)
 
 Normalized request metadata exposed to HTTP callbacks.
 
@@ -18,7 +18,7 @@ Normalized request metadata exposed to HTTP callbacks.
 
 > **headers**: [`header_entry_t`](header_entry_t.md)[]
 
-Defined in: [classes/httpmitm/httpmitm.types.ts:173](https://github.com/opsimathically/httpmitm/blob/11bc0beac1e739d2243eb4c7bd876900a03c12d4/src/classes/httpmitm/httpmitm.types.ts#L173)
+Defined in: [classes/httpmitm/httpmitm.types.ts:182](https://github.com/opsimathically/httpmitm/blob/907fc22be15c6dd08c90d5c416ed97a5bd7082a8/src/classes/httpmitm/httpmitm.types.ts#L182)
 
 ***
 
@@ -26,7 +26,7 @@ Defined in: [classes/httpmitm/httpmitm.types.ts:173](https://github.com/opsimath
 
 > **http\_version**: `string` \| `undefined`
 
-Defined in: [classes/httpmitm/httpmitm.types.ts:172](https://github.com/opsimathically/httpmitm/blob/11bc0beac1e739d2243eb4c7bd876900a03c12d4/src/classes/httpmitm/httpmitm.types.ts#L172)
+Defined in: [classes/httpmitm/httpmitm.types.ts:181](https://github.com/opsimathically/httpmitm/blob/907fc22be15c6dd08c90d5c416ed97a5bd7082a8/src/classes/httpmitm/httpmitm.types.ts#L181)
 
 ***
 
@@ -34,7 +34,7 @@ Defined in: [classes/httpmitm/httpmitm.types.ts:172](https://github.com/opsimath
 
 > **method**: `string` \| `undefined`
 
-Defined in: [classes/httpmitm/httpmitm.types.ts:170](https://github.com/opsimathically/httpmitm/blob/11bc0beac1e739d2243eb4c7bd876900a03c12d4/src/classes/httpmitm/httpmitm.types.ts#L170)
+Defined in: [classes/httpmitm/httpmitm.types.ts:179](https://github.com/opsimathically/httpmitm/blob/907fc22be15c6dd08c90d5c416ed97a5bd7082a8/src/classes/httpmitm/httpmitm.types.ts#L179)
 
 ***
 
@@ -42,4 +42,4 @@ Defined in: [classes/httpmitm/httpmitm.types.ts:170](https://github.com/opsimath
 
 > **url**: `string` \| `undefined`
 
-Defined in: [classes/httpmitm/httpmitm.types.ts:171](https://github.com/opsimathically/httpmitm/blob/11bc0beac1e739d2243eb4c7bd876900a03c12d4/src/classes/httpmitm/httpmitm.types.ts#L171)
+Defined in: [classes/httpmitm/httpmitm.types.ts:180](https://github.com/opsimathically/httpmitm/blob/907fc22be15c6dd08c90d5c416ed97a5bd7082a8/src/classes/httpmitm/httpmitm.types.ts#L180)

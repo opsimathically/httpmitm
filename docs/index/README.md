@@ -18,6 +18,8 @@
 - [httpmitm\_plugin\_http\_hooks\_server\_to\_client\_i](interfaces/httpmitm_plugin_http_hooks_server_to_client_i.md)
 - [httpmitm\_plugin\_i](interfaces/httpmitm_plugin_i.md)
 - [httpmitm\_plugin\_websocket\_hooks\_i](interfaces/httpmitm_plugin_websocket_hooks_i.md)
+- [IProxyCertificateCacheOptions](interfaces/IProxyCertificateCacheOptions.md)
+- [IProxyCertificateOptions](interfaces/IProxyCertificateOptions.md)
 
 ## Type Aliases
 
@@ -42,6 +44,7 @@
 - [http\_response\_metadata\_t](type-aliases/http_response_metadata_t.md)
 - [httpmitm\_ca\_material\_t](type-aliases/httpmitm_ca_material_t.md)
 - [httpmitm\_certificate\_cache\_options\_t](type-aliases/httpmitm_certificate_cache_options_t.md)
+- [httpmitm\_certificate\_key\_algorithm\_t](type-aliases/httpmitm_certificate_key_algorithm_t.md)
 - [httpmitm\_certificate\_options\_t](type-aliases/httpmitm_certificate_options_t.md)
 - [httpmitm\_certificate\_storage\_t](type-aliases/httpmitm_certificate_storage_t.md)
 - [httpmitm\_leaf\_certificate\_wildcard\_t](type-aliases/httpmitm_leaf_certificate_wildcard_t.md)
@@ -51,6 +54,9 @@
 - [httpmitm\_server\_t](type-aliases/httpmitm_server_t.md)
 - [httpmitm\_start\_params\_t](type-aliases/httpmitm_start_params_t.md)
 - [interception\_state\_t](type-aliases/interception_state_t.md)
+- [IProxyCertificateKeyAlgorithm](type-aliases/IProxyCertificateKeyAlgorithm.md)
+- [IProxyCertificateStorage](type-aliases/IProxyCertificateStorage.md)
+- [IProxyLeafCertificateWildcard](type-aliases/IProxyLeafCertificateWildcard.md)
 - [plugin\_http\_interception\_result\_t](type-aliases/plugin_http_interception_result_t.md)
 - [plugin\_http\_request\_data\_callback\_t](type-aliases/plugin_http_request_data_callback_t.md)
 - [plugin\_http\_request\_headers\_callback\_t](type-aliases/plugin_http_request_headers_callback_t.md)

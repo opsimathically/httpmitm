@@ -8,7 +8,7 @@
 
 > **header\_entry\_t** = `object`
 
-Defined in: [classes/httpmitm/httpmitm.types.ts:117](https://github.com/opsimathically/httpmitm/blob/11bc0beac1e739d2243eb4c7bd876900a03c12d4/src/classes/httpmitm/httpmitm.types.ts#L117)
+Defined in: [classes/httpmitm/httpmitm.types.ts:126](https://github.com/opsimathically/httpmitm/blob/907fc22be15c6dd08c90d5c416ed97a5bd7082a8/src/classes/httpmitm/httpmitm.types.ts#L126)
 
 Header mutation entry returned by callbacks.
 
@@ -18,7 +18,7 @@ Header mutation entry returned by callbacks.
 
 > **name**: `string`
 
-Defined in: [classes/httpmitm/httpmitm.types.ts:119](https://github.com/opsimathically/httpmitm/blob/11bc0beac1e739d2243eb4c7bd876900a03c12d4/src/classes/httpmitm/httpmitm.types.ts#L119)
+Defined in: [classes/httpmitm/httpmitm.types.ts:128](https://github.com/opsimathically/httpmitm/blob/907fc22be15c6dd08c90d5c416ed97a5bd7082a8/src/classes/httpmitm/httpmitm.types.ts#L128)
 
 Header name.
 
@@ -28,6 +28,6 @@ Header name.
 
 > **value**: [`header_value_t`](header_value_t.md)
 
-Defined in: [classes/httpmitm/httpmitm.types.ts:121](https://github.com/opsimathically/httpmitm/blob/11bc0beac1e739d2243eb4c7bd876900a03c12d4/src/classes/httpmitm/httpmitm.types.ts#L121)
+Defined in: [classes/httpmitm/httpmitm.types.ts:130](https://github.com/opsimathically/httpmitm/blob/907fc22be15c6dd08c90d5c416ed97a5bd7082a8/src/classes/httpmitm/httpmitm.types.ts#L130)
 
 Header value, array value, or null.

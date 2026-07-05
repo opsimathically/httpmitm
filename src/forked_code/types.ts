@@ -40,19 +40,24 @@ export interface IProxyOptions {
 
 export type IProxyCertificateStorage = "disk" | "memory";
 export type IProxyLeafCertificateWildcard = "registrable_domain" | "exact_host";
+export type IProxyCertificateKeyAlgorithm = "rsa_2048" | "ecdsa_p256";
+
+export interface IProxyCertificateCacheOptions {
+  maxEntries?: number;
+  ttlMs?: number;
+}
 
 export interface IProxyCertificateOptions {
   rootCA?: {
     storage?: IProxyCertificateStorage;
     sslCaDir?: string;
+    keyAlgorithm?: IProxyCertificateKeyAlgorithm;
   };
   leafCertificates?: {
     storage?: IProxyCertificateStorage;
     wildcard?: IProxyLeafCertificateWildcard;
-    cache?: {
-      maxEntries?: number;
-      ttlMs?: number;
-    };
+    keyAlgorithm?: IProxyCertificateKeyAlgorithm;
+    cache?: IProxyCertificateCacheOptions;
   };
 }
 

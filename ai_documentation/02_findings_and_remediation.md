@@ -46,6 +46,10 @@
   - Fix: add configurable disk or memory root CA and leaf certificate storage with in-memory LRU/TTL leaf caching and registrable-domain wildcard reuse.
   - Verification: disk compatibility, memory root, memory leaf, wildcard reuse, exact fallback, TTL/LRU, and concurrent generation tests pass.
 
+- Finding: RSA-only leaf certificate generation is slower than necessary for high-churn HTTPS interception.
+  - Fix: add configurable RSA-2048 or ECDSA P-256 certificate key algorithms with RSA root CA and ECDSA leaf certificates as the default.
+  - Verification: default RSA-root/ECDSA-leaf, explicit all-RSA, explicit all-ECDSA, root mismatch, and leaf filename separation tests pass.
+
 ## Security
 
 - Finding: production audit reported vulnerable direct dependencies.

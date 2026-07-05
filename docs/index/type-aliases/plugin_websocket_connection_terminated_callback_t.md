@@ -8,7 +8,7 @@
 
 > **plugin\_websocket\_connection\_terminated\_callback\_t** = (`params`) => `Promise`\<[`plugin_websocket_interception_result_t`](plugin_websocket_interception_result_t.md) \| `void`\>
 
-Defined in: [classes/httpmitm/httpmitm.types.ts:405](https://github.com/opsimathically/httpmitm/blob/11bc0beac1e739d2243eb4c7bd876900a03c12d4/src/classes/httpmitm/httpmitm.types.ts#L405)
+Defined in: [classes/httpmitm/httpmitm.types.ts:414](https://github.com/opsimathically/httpmitm/blob/907fc22be15c6dd08c90d5c416ed97a5bd7082a8/src/classes/httpmitm/httpmitm.types.ts#L414)
 
 Plugin callback for WebSocket close events.
 

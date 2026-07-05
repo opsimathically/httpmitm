@@ -8,6 +8,12 @@ For disk-backed root CA mode, trust the generated CA certificate at `ssl_ca_dir/
 
 Use `certificates.leaf_certificates.storage: "memory"` to keep generated leaf certificates out of `ssl_ca_dir`. Use `wildcard: "registrable_domain"` to reuse valid wildcard leaves like `example.com` plus `*.example.com`.
 
+ECDSA leaf certificate files include `.ecdsa_p256` in the filename so they can coexist with RSA leaf files. Explicit RSA leaves preserve the older exact-host filenames where practical.
+
+## Root Algorithm Mismatch
+
+If startup fails because an existing root CA key algorithm does not match the requested `certificates.root_ca.key_algorithm`, choose a fresh `ssl_ca_dir` or remove the old CA material after removing trust for the previous CA from affected clients.
+
 ## Upstream HTTPS Fails With Private Certificates
 
 Client trust of the MITM CA does not control upstream trust. Pass an `https_agent` configured with the upstream CA bundle or explicit test-only trust settings.

@@ -806,7 +806,7 @@ async function benchmarkHttpBodyMemory(config) {
   }
 }
 
-async function benchmarkCertificateGeneration(config) {
+async function benchmarkCertificateGeneration(config, leafKeyAlgorithm) {
   const upstream = await startHttpsServer((_request, response) => {
     response.writeHead(200, { "content-type": "text/plain" });
     response.end("cert-ok");
@@ -818,6 +818,7 @@ async function benchmarkCertificateGeneration(config) {
       leaf_certificates: {
         storage: "memory",
         wildcard: "exact_host",
+        key_algorithm: leafKeyAlgorithm,
         cache: { max_entries: config.certCount + 10, ttl_ms: 3_600_000 }
       }
     }
@@ -842,12 +843,14 @@ async function benchmarkCertificateGeneration(config) {
     const elapsedSeconds = (performance.now() - startedAt) / 1000;
 
     return summarizeBenchmark({
-      name: "https_certificate_generation_rate",
+      name: `https_certificate_generation_rate_${leafKeyAlgorithm}`,
       description:
-        "HTTPS CONNECT interception with unique exact-host memory leaf generation.",
+        `HTTPS CONNECT interception with unique exact-host ${leafKeyAlgorithm} memory leaf generation.`,
       unit: "certificates",
       primary_metric: "certificates_per_second",
       metrics: {
+        root_key_algorithm: mitm.server.ca.key_algorithm,
+        leaf_key_algorithm: leafKeyAlgorithm,
         certificates: config.certCount,
         concurrency: config.certConcurrency,
         elapsed_seconds: elapsedSeconds,
@@ -876,6 +879,7 @@ async function benchmarkCertificateWildcardReuse(config) {
       leaf_certificates: {
         storage: "memory",
         wildcard: "registrable_domain",
+        key_algorithm: "ecdsa_p256",
         cache: { max_entries: config.certCount + 10, ttl_ms: 3_600_000 }
       }
     }
@@ -908,6 +912,8 @@ async function benchmarkCertificateWildcardReuse(config) {
       metrics: {
         connects: config.certCount,
         concurrency: config.certConcurrency,
+        root_key_algorithm: mitm.server.ca.key_algorithm,
+        leaf_key_algorithm: "ecdsa_p256",
         elapsed_seconds: elapsedSeconds,
         connects_per_second: config.certCount / elapsedSeconds,
         leaf_cache_entries: mitm.server.proxy.ca.leafCache.size,
@@ -1056,7 +1062,10 @@ async function main() {
     benchmarkHttpCallbacks,
     benchmarkHttpSerialLatency,
     benchmarkHttpBodyMemory,
-    benchmarkCertificateGeneration,
+    async (activeConfig) =>
+      await benchmarkCertificateGeneration(activeConfig, "ecdsa_p256"),
+    async (activeConfig) =>
+      await benchmarkCertificateGeneration(activeConfig, "rsa_2048"),
     benchmarkCertificateWildcardReuse,
     async (activeConfig) => await benchmarkWebSocketFrames(activeConfig, false),
     async (activeConfig) => await benchmarkWebSocketFrames(activeConfig, true),
