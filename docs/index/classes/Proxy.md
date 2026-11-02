@@ -1,0 +1,1551 @@
+[**@opsimathically/httpmitm**](../../README.md)
+
+***
+
+[@opsimathically/httpmitm](../../modules.md) / [index](../README.md) / Proxy
+
+# Class: Proxy
+
+Defined in: [forked\_code/proxy.ts:113](../../../src/forked_code/proxy.ts#L113)
+
+Low-level forked proxy export retained for compatibility and advanced
+integrations. Prefer `HTTPMITM` for normal package usage.
+
+## Implements
+
+- `IProxy`
+
+## Constructors
+
+### Constructor
+
+> **new Proxy**(): `Proxy`
+
+Defined in: [forked\_code/proxy.ts:151](../../../src/forked_code/proxy.ts#L151)
+
+#### Returns
+
+`Proxy`
+
+## Properties
+
+### ca
+
+> **ca**: `CA`
+
+Defined in: [forked\_code/proxy.ts:114](../../../src/forked_code/proxy.ts#L114)
+
+#### Implementation of
+
+`IProxy.ca`
+
+***
+
+### certificateOptions
+
+> **certificateOptions**: `object`
+
+Defined in: [forked\_code/proxy.ts:141](../../../src/forked_code/proxy.ts#L141)
+
+#### leafCertificates
+
+> **leafCertificates**: `object`
+
+##### leafCertificates.cache
+
+> **cache**: `object`
+
+##### leafCertificates.cache.maxEntries
+
+> **maxEntries**: `number`
+
+##### leafCertificates.cache.ttlMs
+
+> **ttlMs**: `number`
+
+##### leafCertificates.keyAlgorithm
+
+> **keyAlgorithm**: [`IProxyCertificateKeyAlgorithm`](../type-aliases/IProxyCertificateKeyAlgorithm.md)
+
+##### leafCertificates.storage
+
+> **storage**: [`IProxyCertificateStorage`](../type-aliases/IProxyCertificateStorage.md)
+
+##### leafCertificates.wildcard
+
+> **wildcard**: [`IProxyLeafCertificateWildcard`](../type-aliases/IProxyLeafCertificateWildcard.md)
+
+#### rootCA
+
+> **rootCA**: `object`
+
+##### rootCA.keyAlgorithm
+
+> **keyAlgorithm**: [`IProxyCertificateKeyAlgorithm`](../type-aliases/IProxyCertificateKeyAlgorithm.md)
+
+##### rootCA.material
+
+> **material**: [`IProxyRootCAMaterial`](../interfaces/IProxyRootCAMaterial.md) \| `undefined`
+
+##### rootCA.sslCaDir
+
+> **sslCaDir**: `string`
+
+##### rootCA.storage
+
+> **storage**: [`IProxyCertificateStorage`](../type-aliases/IProxyCertificateStorage.md) = `rootStorage`
+
+#### Implementation of
+
+`IProxy.certificateOptions`
+
+***
+
+### connectRequests
+
+> **connectRequests**: `Record`\<`string`, `http.IncomingMessage`\> = `{}`
+
+Defined in: [forked\_code/proxy.ts:115](../../../src/forked_code/proxy.ts#L115)
+
+***
+
+### forceSNI
+
+> **forceSNI**: `boolean`
+
+Defined in: [forked\_code/proxy.ts:116](../../../src/forked_code/proxy.ts#L116)
+
+#### Implementation of
+
+`IProxy.forceSNI`
+
+***
+
+### httpAgent
+
+> **httpAgent**: `Agent`
+
+Defined in: [forked\_code/proxy.ts:117](../../../src/forked_code/proxy.ts#L117)
+
+#### Implementation of
+
+`IProxy.httpAgent`
+
+***
+
+### httpHost?
+
+> `optional` **httpHost**: `string`
+
+Defined in: [forked\_code/proxy.ts:118](../../../src/forked_code/proxy.ts#L118)
+
+***
+
+### httpPort
+
+> **httpPort**: `number`
+
+Defined in: [forked\_code/proxy.ts:119](../../../src/forked_code/proxy.ts#L119)
+
+#### Implementation of
+
+`IProxy.httpPort`
+
+***
+
+### httpsAgent
+
+> **httpsAgent**: `Agent`
+
+Defined in: [forked\_code/proxy.ts:121](../../../src/forked_code/proxy.ts#L121)
+
+#### Implementation of
+
+`IProxy.httpsAgent`
+
+***
+
+### httpServer
+
+> **httpServer**: `Server`\<*typeof* `IncomingMessage`, *typeof* `ServerResponse`\> \| `undefined`
+
+Defined in: [forked\_code/proxy.ts:120](../../../src/forked_code/proxy.ts#L120)
+
+***
+
+### httpsPort?
+
+> `optional` **httpsPort**: `number`
+
+Defined in: [forked\_code/proxy.ts:122](../../../src/forked_code/proxy.ts#L122)
+
+#### Implementation of
+
+`IProxy.httpsPort`
+
+***
+
+### httpsServer
+
+> **httpsServer**: `Server`\<*typeof* `IncomingMessage`, *typeof* `ServerResponse`\> \| `undefined`
+
+Defined in: [forked\_code/proxy.ts:123](../../../src/forked_code/proxy.ts#L123)
+
+***
+
+### keepAlive
+
+> **keepAlive**: `boolean`
+
+Defined in: [forked\_code/proxy.ts:124](../../../src/forked_code/proxy.ts#L124)
+
+#### Implementation of
+
+`IProxy.keepAlive`
+
+***
+
+### onConnectHandlers
+
+> **onConnectHandlers**: `HandlerType`\<(`fcn`) => `void`\>
+
+Defined in: [forked\_code/proxy.ts:125](../../../src/forked_code/proxy.ts#L125)
+
+***
+
+### onErrorHandlers
+
+> **onErrorHandlers**: `HandlerType`\<(`callback`) => `void`\>
+
+Defined in: [forked\_code/proxy.ts:126](../../../src/forked_code/proxy.ts#L126)
+
+***
+
+### onRequestDataHandlers
+
+> **onRequestDataHandlers**: `HandlerType`\<(`fcn`) => `void`\>
+
+Defined in: [forked\_code/proxy.ts:127](../../../src/forked_code/proxy.ts#L127)
+
+***
+
+### onRequestEndHandlers
+
+> **onRequestEndHandlers**: `HandlerType`\<(`fcn`) => `void`\>
+
+Defined in: [forked\_code/proxy.ts:128](../../../src/forked_code/proxy.ts#L128)
+
+***
+
+### onRequestHandlers
+
+> **onRequestHandlers**: `HandlerType`\<(`fcn`) => `void`\>
+
+Defined in: [forked\_code/proxy.ts:129](../../../src/forked_code/proxy.ts#L129)
+
+***
+
+### onRequestHeadersHandlers
+
+> **onRequestHeadersHandlers**: `HandlerType`\<(`fcn`) => `void`\>
+
+Defined in: [forked\_code/proxy.ts:130](../../../src/forked_code/proxy.ts#L130)
+
+***
+
+### onResponseDataHandlers
+
+> **onResponseDataHandlers**: `HandlerType`\<(`fcn`) => `void`\>
+
+Defined in: [forked\_code/proxy.ts:131](../../../src/forked_code/proxy.ts#L131)
+
+***
+
+### onResponseEndHandlers
+
+> **onResponseEndHandlers**: `HandlerType`\<(`fcn`) => `void`\>
+
+Defined in: [forked\_code/proxy.ts:132](../../../src/forked_code/proxy.ts#L132)
+
+***
+
+### onResponseHandlers
+
+> **onResponseHandlers**: `HandlerType`\<(`fcn`) => `void`\>
+
+Defined in: [forked\_code/proxy.ts:133](../../../src/forked_code/proxy.ts#L133)
+
+***
+
+### onResponseHeadersHandlers
+
+> **onResponseHeadersHandlers**: `HandlerType`\<(`fcn`) => `void`\>
+
+Defined in: [forked\_code/proxy.ts:134](../../../src/forked_code/proxy.ts#L134)
+
+***
+
+### onWebSocketCloseHandlers
+
+> **onWebSocketCloseHandlers**: `HandlerType`\<(`fcn`) => `void`\>
+
+Defined in: [forked\_code/proxy.ts:135](../../../src/forked_code/proxy.ts#L135)
+
+***
+
+### onWebSocketConnectionHandlers
+
+> **onWebSocketConnectionHandlers**: `HandlerType`\<(`fcn`) => `void`\>
+
+Defined in: [forked\_code/proxy.ts:136](../../../src/forked_code/proxy.ts#L136)
+
+***
+
+### onWebSocketErrorHandlers
+
+> **onWebSocketErrorHandlers**: `HandlerType`\<(`fcn`) => `void`\>
+
+Defined in: [forked\_code/proxy.ts:137](../../../src/forked_code/proxy.ts#L137)
+
+***
+
+### onWebSocketFrameHandlers
+
+> **onWebSocketFrameHandlers**: `HandlerType`\<(`fcn`) => `void`\>
+
+Defined in: [forked\_code/proxy.ts:138](../../../src/forked_code/proxy.ts#L138)
+
+***
+
+### options
+
+> **options**: `IProxyOptions`
+
+Defined in: [forked\_code/proxy.ts:139](../../../src/forked_code/proxy.ts#L139)
+
+#### Implementation of
+
+`IProxy.options`
+
+***
+
+### responseContentPotentiallyModified
+
+> **responseContentPotentiallyModified**: `boolean`
+
+Defined in: [forked\_code/proxy.ts:140](../../../src/forked_code/proxy.ts#L140)
+
+***
+
+### sslCaDir
+
+> **sslCaDir**: `string`
+
+Defined in: [forked\_code/proxy.ts:142](../../../src/forked_code/proxy.ts#L142)
+
+#### Implementation of
+
+`IProxy.sslCaDir`
+
+***
+
+### sslSemaphores
+
+> **sslSemaphores**: `Record`\<`string`, `semaphore.Semaphore`\> = `{}`
+
+Defined in: [forked\_code/proxy.ts:143](../../../src/forked_code/proxy.ts#L143)
+
+***
+
+### sslServers
+
+> **sslServers**: `Record`\<`string`, `IProxySSLServer`\> = `{}`
+
+Defined in: [forked\_code/proxy.ts:144](../../../src/forked_code/proxy.ts#L144)
+
+***
+
+### timeout
+
+> **timeout**: `number`
+
+Defined in: [forked\_code/proxy.ts:145](../../../src/forked_code/proxy.ts#L145)
+
+#### Implementation of
+
+`IProxy.timeout`
+
+***
+
+### wsServer
+
+> **wsServer**: `WebSocketServer` \| `undefined`
+
+Defined in: [forked\_code/proxy.ts:146](../../../src/forked_code/proxy.ts#L146)
+
+***
+
+### wssServer
+
+> **wssServer**: `WebSocketServer` \| `undefined`
+
+Defined in: [forked\_code/proxy.ts:147](../../../src/forked_code/proxy.ts#L147)
+
+***
+
+### gunzip
+
+> `static` **gunzip**: `object`
+
+Defined in: [forked\_code/proxy.ts:149](../../../src/forked_code/proxy.ts#L149)
+
+#### onRequest()
+
+> **onRequest**(`ctx`, `callback`): `any`
+
+##### Parameters
+
+###### ctx
+
+`IContext`
+
+###### callback
+
+`Function`
+
+##### Returns
+
+`any`
+
+#### onResponse()
+
+> **onResponse**(`ctx`, `callback`): `any`
+
+##### Parameters
+
+###### ctx
+
+`IContext`
+
+###### callback
+
+`Function`
+
+##### Returns
+
+`any`
+
+***
+
+### wildcard
+
+> `static` **wildcard**: `object`
+
+Defined in: [forked\_code/proxy.ts:148](../../../src/forked_code/proxy.ts#L148)
+
+#### onCertificateRequired()
+
+> **onCertificateRequired**(`hostname`, `callback`): `void`
+
+##### Parameters
+
+###### hostname
+
+`string`
+
+###### callback
+
+`ErrorCallback`
+
+##### Returns
+
+`void`
+
+## Methods
+
+### \_createHttpsServer()
+
+> **\_createHttpsServer**(`options`, `callback`): `void`
+
+Defined in: [forked\_code/proxy.ts:248](../../../src/forked_code/proxy.ts#L248)
+
+#### Parameters
+
+##### options
+
+`ServerOptions`\<*typeof* `IncomingMessage`, *typeof* `ServerResponse`\> & `object`
+
+##### callback
+
+`ICreateServerCallback`
+
+#### Returns
+
+`void`
+
+***
+
+### \_onError()
+
+> **\_onError**(`kind`, `ctx`, `err`): `void`
+
+Defined in: [forked\_code/proxy.ts:861](../../../src/forked_code/proxy.ts#L861)
+
+#### Parameters
+
+##### kind
+
+`string`
+
+##### ctx
+
+`IContext` | `null`
+
+##### err
+
+`Error`
+
+#### Returns
+
+`void`
+
+***
+
+### \_onHttpServerConnect()
+
+> **\_onHttpServerConnect**(`req`, `socket`, `head`): `void`
+
+Defined in: [forked\_code/proxy.ts:560](../../../src/forked_code/proxy.ts#L560)
+
+#### Parameters
+
+##### req
+
+`IncomingMessage`
+
+##### socket
+
+`Duplex`
+
+##### head
+
+`Buffer`
+
+#### Returns
+
+`void`
+
+***
+
+### \_onHttpServerConnectData()
+
+> **\_onHttpServerConnectData**(`req`, `socket`, `head`): `void`
+
+Defined in: [forked\_code/proxy.ts:603](../../../src/forked_code/proxy.ts#L603)
+
+#### Parameters
+
+##### req
+
+`IncomingMessage`
+
+##### socket
+
+`Duplex`
+
+##### head
+
+`Buffer`
+
+#### Returns
+
+`void`
+
+***
+
+### \_onHttpServerRequest()
+
+> **\_onHttpServerRequest**(`isSSL`, `clientToProxyRequest`, `proxyToClientResponse`): `void`
+
+Defined in: [forked\_code/proxy.ts:1082](../../../src/forked_code/proxy.ts#L1082)
+
+#### Parameters
+
+##### isSSL
+
+`boolean`
+
+##### clientToProxyRequest
+
+`IncomingMessage`
+
+##### proxyToClientResponse
+
+`ServerResponse`
+
+#### Returns
+
+`void`
+
+***
+
+### \_onRequest()
+
+> **\_onRequest**(`ctx`, `callback`): `void`
+
+Defined in: [forked\_code/proxy.ts:1328](../../../src/forked_code/proxy.ts#L1328)
+
+#### Parameters
+
+##### ctx
+
+`IContext`
+
+##### callback
+
+`ErrorCallback`
+
+#### Returns
+
+`void`
+
+***
+
+### \_onRequestData()
+
+> **\_onRequestData**(`ctx`, `chunk`, `callback`): `void`
+
+Defined in: [forked\_code/proxy.ts:1475](../../../src/forked_code/proxy.ts#L1475)
+
+#### Parameters
+
+##### ctx
+
+`IContext`
+
+##### chunk
+
+`any`
+
+##### callback
+
+`any`
+
+#### Returns
+
+`void`
+
+***
+
+### \_onRequestEnd()
+
+> **\_onRequestEnd**(`ctx`, `callback`): `void`
+
+Defined in: [forked\_code/proxy.ts:1496](../../../src/forked_code/proxy.ts#L1496)
+
+#### Parameters
+
+##### ctx
+
+`IContext`
+
+##### callback
+
+`ErrorCallback`
+
+#### Returns
+
+`void`
+
+***
+
+### \_onRequestHeaders()
+
+> **\_onRequestHeaders**(`ctx`, `callback`): `void`
+
+Defined in: [forked\_code/proxy.ts:1320](../../../src/forked_code/proxy.ts#L1320)
+
+#### Parameters
+
+##### ctx
+
+`IContext`
+
+##### callback
+
+`ErrorCallback`
+
+#### Returns
+
+`void`
+
+***
+
+### \_onResponse()
+
+> **\_onResponse**(`ctx`, `callback`): `void`
+
+Defined in: [forked\_code/proxy.ts:1510](../../../src/forked_code/proxy.ts#L1510)
+
+#### Parameters
+
+##### ctx
+
+`IContext`
+
+##### callback
+
+`ErrorCallback`
+
+#### Returns
+
+`void`
+
+***
+
+### \_onResponseData()
+
+> **\_onResponseData**(`ctx`, `chunk`, `callback`): `void`
+
+Defined in: [forked\_code/proxy.ts:1526](../../../src/forked_code/proxy.ts#L1526)
+
+#### Parameters
+
+##### ctx
+
+`IContext`
+
+##### chunk
+
+`any`
+
+##### callback
+
+`ErrorCallback`
+
+#### Returns
+
+`void`
+
+***
+
+### \_onResponseEnd()
+
+> **\_onResponseEnd**(`ctx`, `callback`): `void`
+
+Defined in: [forked\_code/proxy.ts:1546](../../../src/forked_code/proxy.ts#L1546)
+
+#### Parameters
+
+##### ctx
+
+`IContext`
+
+##### callback
+
+`ErrorCallback`
+
+#### Returns
+
+`void`
+
+***
+
+### \_onResponseHeaders()
+
+> **\_onResponseHeaders**(`ctx`, `callback`): `void`
+
+Defined in: [forked\_code/proxy.ts:1518](../../../src/forked_code/proxy.ts#L1518)
+
+#### Parameters
+
+##### ctx
+
+`IContext`
+
+##### callback
+
+`ErrorCallback`
+
+#### Returns
+
+`void`
+
+***
+
+### \_onSocketError()
+
+> **\_onSocketError**(`socketDescription`, `err`): `void`
+
+Defined in: [forked\_code/proxy.ts:552](../../../src/forked_code/proxy.ts#L552)
+
+#### Parameters
+
+##### socketDescription
+
+`string`
+
+##### err
+
+`ErrnoException`
+
+#### Returns
+
+`void`
+
+***
+
+### \_onWebSocketClose()
+
+> **\_onWebSocketClose**(`ctx`, `closedByServer`, `code`, `message`): `void`
+
+Defined in: [forked\_code/proxy.ts:1398](../../../src/forked_code/proxy.ts#L1398)
+
+#### Parameters
+
+##### ctx
+
+`IWebSocketContext`
+
+##### closedByServer
+
+`boolean`
+
+##### code
+
+`number`
+
+##### message
+
+`Buffer`
+
+#### Returns
+
+`void`
+
+***
+
+### \_onWebSocketConnection()
+
+> **\_onWebSocketConnection**(`ctx`, `callback`): `void`
+
+Defined in: [forked\_code/proxy.ts:1336](../../../src/forked_code/proxy.ts#L1336)
+
+#### Parameters
+
+##### ctx
+
+`IWebSocketContext`
+
+##### callback
+
+`ErrorCallback`
+
+#### Returns
+
+`void`
+
+***
+
+### \_onWebSocketError()
+
+> **\_onWebSocketError**(`ctx`, `err`): `void`
+
+Defined in: [forked\_code/proxy.ts:1446](../../../src/forked_code/proxy.ts#L1446)
+
+#### Parameters
+
+##### ctx
+
+`IWebSocketContext`
+
+##### err
+
+`Error`
+
+#### Returns
+
+`void`
+
+***
+
+### \_onWebSocketFrame()
+
+> **\_onWebSocketFrame**(`ctx`, `type`, `fromServer`, `data`, `flags?`): `void`
+
+Defined in: [forked\_code/proxy.ts:1346](../../../src/forked_code/proxy.ts#L1346)
+
+#### Parameters
+
+##### ctx
+
+`IWebSocketContext`
+
+##### type
+
+`string`
+
+##### fromServer
+
+`boolean`
+
+##### data
+
+`RawData`
+
+##### flags?
+
+`boolean` | `WebSocketFlags`
+
+#### Returns
+
+`void`
+
+***
+
+### \_onWebSocketServerConnect()
+
+> **\_onWebSocketServerConnect**(`isSSL`, `ws`, `upgradeReq`): `void`
+
+Defined in: [forked\_code/proxy.ts:882](../../../src/forked_code/proxy.ts#L882)
+
+#### Parameters
+
+##### isSSL
+
+`boolean`
+
+##### ws
+
+`WebSocket`
+
+##### upgradeReq
+
+`IncomingMessage`
+
+#### Returns
+
+`void`
+
+***
+
+### close()
+
+> **close**(): `Proxy`
+
+Defined in: [forked\_code/proxy.ts:297](../../../src/forked_code/proxy.ts#L297)
+
+proxy.close
+Stops the proxy listening.
+
+Example
+
+proxy.close();
+
+#### Returns
+
+`Proxy`
+
+#### Implementation of
+
+`IProxy.close`
+
+***
+
+### closeAsync()
+
+> **closeAsync**(): `Promise`\<`Proxy`\>
+
+Defined in: [forked\_code/proxy.ts:318](../../../src/forked_code/proxy.ts#L318)
+
+#### Returns
+
+`Promise`\<`Proxy`\>
+
+#### Implementation of
+
+`IProxy.closeAsync`
+
+***
+
+### listen()
+
+> **listen**(`options`, `callback`): `Proxy`
+
+Defined in: [forked\_code/proxy.ts:169](../../../src/forked_code/proxy.ts#L169)
+
+Starts the proxy listening on the given port.  example: proxy.listen({ port: 80 });
+
+#### Parameters
+
+##### options
+
+`IProxyOptions`
+
+##### callback
+
+`ErrorCallback` = `...`
+
+#### Returns
+
+`Proxy`
+
+#### Implementation of
+
+`IProxy.listen`
+
+***
+
+### onCertificateMissing()
+
+> **onCertificateMissing**(`ctx`, `files`, `callback`): `void`
+
+Defined in: [forked\_code/proxy.ts:841](../../../src/forked_code/proxy.ts#L841)
+
+#### Parameters
+
+##### ctx
+
+`ICertficateContext`
+
+##### files
+
+`ICertDetails`
+
+##### callback
+
+`ErrorCallback`
+
+#### Returns
+
+`void`
+
+#### Implementation of
+
+`IProxy.onCertificateMissing`
+
+***
+
+### onCertificateRequired()
+
+> **onCertificateRequired**(`hostname`, `callback`): `void`
+
+Defined in: [forked\_code/proxy.ts:834](../../../src/forked_code/proxy.ts#L834)
+
+#### Parameters
+
+##### hostname
+
+`string`
+
+##### callback
+
+`OnCertificateRequiredCallback`
+
+#### Returns
+
+`void`
+
+#### Implementation of
+
+`IProxy.onCertificateRequired`
+
+***
+
+### onConnect()
+
+> **onConnect**(`fn`): `Proxy`
+
+Defined in: [forked\_code/proxy.ts:391](../../../src/forked_code/proxy.ts#L391)
+
+#### Parameters
+
+##### fn
+
+`OnConnectParams`
+
+#### Returns
+
+`Proxy`
+
+#### Implementation of
+
+`IProxy.onConnect`
+
+***
+
+### onError()
+
+> **onError**(`fn`): `Proxy`
+
+Defined in: [forked\_code/proxy.ts:386](../../../src/forked_code/proxy.ts#L386)
+
+Adds a function to the list of functions to get called if an error occures.
+
+Arguments
+
+fn(ctx, err, errorKind) - The function to be called on an error.
+
+#### Parameters
+
+##### fn
+
+`OnErrorParams`
+
+#### Returns
+
+`Proxy`
+
+#### Implementation of
+
+`IProxy.onError`
+
+***
+
+### onRequest()
+
+> **onRequest**(`fn`): `Proxy`
+
+Defined in: [forked\_code/proxy.ts:401](../../../src/forked_code/proxy.ts#L401)
+
+Adds a function to get called at the beginning of a request.
+
+Arguments
+
+fn(ctx, callback) - The function that gets called on each request.
+Example
+
+proxy.onRequest(function(ctx, callback) {
+      console.log('REQUEST:', ctx.clientToProxyRequest.url);
+      return callback();
+    });
+
+#### Parameters
+
+##### fn
+
+`OnRequestParams`
+
+#### Returns
+
+`Proxy`
+
+#### Implementation of
+
+`IProxy.onRequest`
+
+***
+
+### onRequestData()
+
+> **onRequestData**(`fn`): `Proxy`
+
+Defined in: [forked\_code/proxy.ts:452](../../../src/forked_code/proxy.ts#L452)
+
+#### Parameters
+
+##### fn
+
+`OnRequestDataParams`
+
+#### Returns
+
+`Proxy`
+
+#### Implementation of
+
+`IProxy.onRequestData`
+
+***
+
+### onRequestEnd()
+
+> **onRequestEnd**(`fn`): `Proxy`
+
+Defined in: [forked\_code/proxy.ts:457](../../../src/forked_code/proxy.ts#L457)
+
+#### Parameters
+
+##### fn
+
+`OnRequestParams`
+
+#### Returns
+
+`Proxy`
+
+#### Implementation of
+
+`IProxy.onRequestEnd`
+
+***
+
+### onRequestHeaders()
+
+> **onRequestHeaders**(`fn`): `Proxy`
+
+Defined in: [forked\_code/proxy.ts:396](../../../src/forked_code/proxy.ts#L396)
+
+#### Parameters
+
+##### fn
+
+`OnRequestParams`
+
+#### Returns
+
+`Proxy`
+
+#### Implementation of
+
+`IProxy.onRequestHeaders`
+
+***
+
+### onResponse()
+
+> **onResponse**(`fn`): `Proxy`
+
+Defined in: [forked\_code/proxy.ts:462](../../../src/forked_code/proxy.ts#L462)
+
+Adds a function to get called at the beginning of the response.
+
+Arguments
+
+fn(ctx, callback) - The function that gets called on each response.
+Example
+
+proxy.onResponse(function(ctx, callback) {
+      console.log('BEGIN RESPONSE');
+      return callback();
+    });
+
+#### Parameters
+
+##### fn
+
+`OnRequestParams`
+
+#### Returns
+
+`Proxy`
+
+#### Implementation of
+
+`IProxy.onResponse`
+
+***
+
+### onResponseData()
+
+> **onResponseData**(`fn`): `Proxy`
+
+Defined in: [forked\_code/proxy.ts:472](../../../src/forked_code/proxy.ts#L472)
+
+#### Parameters
+
+##### fn
+
+`OnRequestDataParams`
+
+#### Returns
+
+`Proxy`
+
+#### Implementation of
+
+`IProxy.onResponseData`
+
+***
+
+### onResponseEnd()
+
+> **onResponseEnd**(`fn`): `Proxy`
+
+Defined in: [forked\_code/proxy.ts:478](../../../src/forked_code/proxy.ts#L478)
+
+#### Parameters
+
+##### fn
+
+`OnRequestParams`
+
+#### Returns
+
+`Proxy`
+
+#### Implementation of
+
+`IProxy.onResponseEnd`
+
+***
+
+### onResponseHeaders()
+
+> **onResponseHeaders**(`fn`): `Proxy`
+
+Defined in: [forked\_code/proxy.ts:467](../../../src/forked_code/proxy.ts#L467)
+
+#### Parameters
+
+##### fn
+
+`OnRequestParams`
+
+#### Returns
+
+`Proxy`
+
+#### Implementation of
+
+`IProxy.onResponseHeaders`
+
+***
+
+### onWebSocketClose()
+
+> **onWebSocketClose**(`fn`): `Proxy`
+
+Defined in: [forked\_code/proxy.ts:442](../../../src/forked_code/proxy.ts#L442)
+
+#### Parameters
+
+##### fn
+
+`OnWebSocketCloseParams`
+
+#### Returns
+
+`Proxy`
+
+#### Implementation of
+
+`IProxy.onWebSocketClose`
+
+***
+
+### onWebSocketConnection()
+
+> **onWebSocketConnection**(`fn`): `Proxy`
+
+Defined in: [forked\_code/proxy.ts:406](../../../src/forked_code/proxy.ts#L406)
+
+#### Parameters
+
+##### fn
+
+`OnWebsocketRequestParams`
+
+#### Returns
+
+`Proxy`
+
+#### Implementation of
+
+`IProxy.onWebSocketConnection`
+
+***
+
+### onWebSocketError()
+
+> **onWebSocketError**(`fn`): `Proxy`
+
+Defined in: [forked\_code/proxy.ts:447](../../../src/forked_code/proxy.ts#L447)
+
+#### Parameters
+
+##### fn
+
+`OnWebSocketErrorParams`
+
+#### Returns
+
+`Proxy`
+
+#### Implementation of
+
+`IProxy.onWebSocketError`
+
+***
+
+### onWebSocketFrame()
+
+> **onWebSocketFrame**(`fn`): `Proxy`
+
+Defined in: [forked\_code/proxy.ts:437](../../../src/forked_code/proxy.ts#L437)
+
+#### Parameters
+
+##### fn
+
+`OnWebSocketFrameParams`
+
+#### Returns
+
+`Proxy`
+
+#### Implementation of
+
+`IProxy.onWebSocketFrame`
+
+***
+
+### onWebSocketMessage()
+
+> **onWebSocketMessage**(`fn`): `Proxy`
+
+Defined in: [forked\_code/proxy.ts:424](../../../src/forked_code/proxy.ts#L424)
+
+#### Parameters
+
+##### fn
+
+`OnWebSocketMessageParams`
+
+#### Returns
+
+`Proxy`
+
+#### Implementation of
+
+`IProxy.onWebSocketMessage`
+
+***
+
+### onWebSocketSend()
+
+> **onWebSocketSend**(`fn`): `Proxy`
+
+Defined in: [forked\_code/proxy.ts:411](../../../src/forked_code/proxy.ts#L411)
+
+#### Parameters
+
+##### fn
+
+`OnWebSocketSendParams`
+
+#### Returns
+
+`Proxy`
+
+#### Implementation of
+
+`IProxy.onWebSocketSend`
+
+***
+
+### use()
+
+> **use**(`mod`): `Proxy`
+
+Defined in: [forked\_code/proxy.ts:483](../../../src/forked_code/proxy.ts#L483)
+
+Adds a module into the proxy. Modules encapsulate multiple life cycle processing functions into one object.
+
+Arguments
+
+module - The module to add. Modules contain a hash of functions to add.
+Example
+
+proxy.use({
+        onError: function(ctx, err) { },
+        onCertificateRequired: function(hostname, callback) { return callback(); },
+        onCertificateMissing: function(ctx, files, callback) { return callback(); },
+        onRequest: function(ctx, callback) { return callback(); },
+        onRequestData: function(ctx, chunk, callback) { return callback(null, chunk); },
+        onResponse: function(ctx, callback) { return callback(); },
+        onResponseData: function(ctx, chunk, callback) { return callback(null, chunk); },
+        onWebSocketConnection: function(ctx, callback) { return callback(); },
+        onWebSocketSend: function(ctx, message, flags, callback) { return callback(null, message, flags); },
+        onWebSocketMessage: function(ctx, message, flags, callback) { return callback(null, message, flags); },
+        onWebSocketError: function(ctx, err) {  },
+        onWebSocketClose: function(ctx, code, message, callback) {  },
+        });
+node-http-mitm-proxy provide some ready to use modules:
+
+Proxy.gunzip Gunzip response filter (uncompress gzipped content before onResponseData and compress back after)
+Proxy.wildcard provides the forked proxy's legacy wildcard certificate middleware. Prefer the `HTTPMITM` `certificates` option for new code.
+
+#### Parameters
+
+##### mod
+
+`any`
+
+#### Returns
+
+`Proxy`
+
+#### Implementation of
+
+`IProxy.use`
+
+***
+
+### filterAndCanonizeHeaders()
+
+> `static` **filterAndCanonizeHeaders**(`originalHeaders`): `object`
+
+Defined in: [forked\_code/proxy.ts:1594](../../../src/forked_code/proxy.ts#L1594)
+
+#### Parameters
+
+##### originalHeaders
+
+`IncomingHttpHeaders`
+
+#### Returns
+
+`object`
+
+***
+
+### parseHost()
+
+> `static` **parseHost**(`hostString`, `defaultPort?`): `object`
+
+Defined in: [forked\_code/proxy.ts:1571](../../../src/forked_code/proxy.ts#L1571)
+
+#### Parameters
+
+##### hostString
+
+`string`
+
+##### defaultPort?
+
+`number`
+
+#### Returns
+
+`object`
+
+##### host
+
+> **host**: `string`
+
+##### port
+
+> **port**: `number` \| `undefined`
+
+***
+
+### parseHostAndPort()
+
+> `static` **parseHostAndPort**(`req`, `defaultPort?`): \{ `host`: `string`; `port`: `number` \| `undefined`; \} \| `null`
+
+Defined in: [forked\_code/proxy.ts:1559](../../../src/forked_code/proxy.ts#L1559)
+
+#### Parameters
+
+##### req
+
+`IncomingMessage`
+
+##### defaultPort?
+
+`number`
+
+#### Returns
+
+\{ `host`: `string`; `port`: `number` \| `undefined`; \} \| `null`
